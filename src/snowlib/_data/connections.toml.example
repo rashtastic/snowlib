@@ -1,0 +1,73 @@
+# Snowflake Connection Profiles
+# 
+# Copy this file to 'connections.toml' and fill in your connectivity details.
+#
+# These are just examples- you can name the profiles as you like.
+
+# Default profile - SSO/browser authentication
+[default]
+account = "your-account.region"
+user = "your_username"
+warehouse = "YOUR_WAREHOUSE"
+database = "YOUR_DATABASE"
+authenticator = "externalbrowser"
+
+# Development environment
+[dev]
+account = "your-account.region"
+user = "your_username"
+warehouse = "DEV_WH"
+database = "DEV_DATABASE"
+schema = "DEV_SCHEMA"
+authenticator = "externalbrowser"
+
+# Production environment
+[prod]
+account = "your-account.region"
+user = "your_username"
+warehouse = "PROD_WH"
+database = "PROD_DATABASE"
+role = "PROD_ROLE"
+authenticator = "externalbrowser"
+
+# Testing - password authentication
+[test]
+account = "your-account.region"
+user = "test_user"
+warehouse = "TEST_WH"
+database = "TEST_DATABASE"
+authenticator = "snowflake"
+
+# Interactive debugging
+[debug]
+account = "your-account.region"
+user = "your_username"
+warehouse = "DEV_WH"
+database = "DEV_DATABASE"
+schema = "SCRATCH"
+role = "DEV_ROLE"
+authenticator = "externalbrowser"
+
+# Keypair authentication - environment variable
+[service]
+account = "your-account.region"
+user = "service_account"
+warehouse = "SERVICE_WH"
+database = "SERVICE_DATABASE"
+role = "SERVICE_ROLE"
+authenticator = "SNOWFLAKE_JWT"
+private_key_file = "~/.snowflake/rsa_key.p8"
+private_key_passphrase_env = "ENV_VAR_WITH_PASSPHRASE"
+
+# Keypair authentication - Windows Credential Manager
+[service_keyring]
+account = "your-account.region"
+user = "service_account"
+warehouse = "SERVICE_WH"
+database = "SERVICE_DATABASE"
+role = "SERVICE_ROLE"
+authenticator = "SNOWFLAKE_JWT"
+private_key_file = "~/.snowflake/rsa_key.p8"
+use_keyring = true
+keyring_service = "snowflake"
+keyring_username = "service_account_keypair"

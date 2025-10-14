@@ -1,0 +1,20 @@
+# Example Test Configuration for pytest
+# Copy this to test_config.toml and customize for your environment
+#
+# This file is used by the snowlib test suite (pytest) to configure
+# test database connections and test data locations.
+# NOT for general-purpose connection configuration - use connections.toml for that.
+
+[test]
+# Profile to use for tests (from connections.toml)
+# This profile should have permissions to create/drop/truncate tables
+profile = "test"
+
+# Database and schema for test operations
+# You may want to provide a dedicated test schema, as tests will create and drop tables
+database = "YOUR_TEST_DATABASE"
+schema = "YOUR_TEST_SCHEMA"
+
+# Test table names (will be created/dropped during tests)
+write_table = "TEST_WRITE_TABLE"
+temp_table = "TEST_TEMP_TABLE"

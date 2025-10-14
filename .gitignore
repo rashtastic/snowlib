@@ -1,0 +1,22 @@
+venv/
+venvs/
+.ipynb_checkpoints
+.vscode/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.tox/
+
+# User configuration directory - ignore actual config files but keep examples
+SNOWLIB_HOME_DIR/*.toml
+!SNOWLIB_HOME_DIR/*.toml.example
+!SNOWLIB_HOME_DIR/
+
+security/
+*.log
+*-output.log
+
+dist/
+build/lib/
+build/bdist.*/
+*.egg-info/
