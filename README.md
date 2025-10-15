@@ -5,22 +5,25 @@ Python-Snowflake utilities
 ```bash
 pip install snowlib
 pip install snowlib[snowpark]
+pip install snowlib[sqlalchemy]
 pip install snowlib[excel]
-pip install snowlib[snowpark,excel]
 ```
 
 ## Compatibility
 
-| Python | snowflake-connector-python | snowflake-snowpark-python | pandas | pyarrow |
-|--------|----------------------------|---------------------------|--------|---------|
-| 3.14   | >=3.17.0                   | -                         | ✓      | -       |
-| 3.13   | >=3.17.0, <4.0.0           | ✓                         | ✓      | ✓       |
-| 3.12   | >=3.17.0, <4.0.0           | ✓                         | ✓      | ✓       |
-| 3.11   | >=3.17.0, <4.0.0           | ✓                         | ✓      | ✓       |
-| 3.10   | >=3.17.0, <4.0.0           | ✓                         | ✓      | ✓       |
-| 3.9    | >=3.17.0, <4.0.0           | ✓                         | ✓      | ✓       |
+| Package | 3.14 | 3.13-3.9* |
+|---------|:----:|:---------:|
+| **snowflake-connector-python** | ≥3.17.0 | ≥3.17.0, <4.0.0 |
+| **snowflake-snowpark-python** | - | ≥1.9.0 |
+| **sqlalchemy** | ≥2.0 | ≥2.0 |
+| **snowflake-sqlalchemy** | ≥1.6.0 | ≥1.6.0 |
+| **pyarrow** | - | ✓ |
+| **pandas** | ✓ | ✓ |
 
 **Notes:**
-- ✓ = Supported with `[snowpark]` extra
-- \- = Not supported (no wheel available or incompatible)
-- Python 3.14 uses base connector only (Snowpark pending compatibility)
+- Version ranges shown when specified in `pyproject.toml`
+- ✓ = Supported
+- \- = Not available (no compatible wheel or version constraint)
+- Python 3.14: Base connector only (Snowpark/PyArrow require <3.14)
+- SQLAlchemy support: `pip install snowlib[sqlalchemy]`
+- \* Python 3.9 reached [end-of-life in October 2025](https://peps.python.org/pep-0596/#lifespan) - please consider upgrading

@@ -60,6 +60,15 @@ def test_profile() -> str:
 
 
 @pytest.fixture(scope="session")
+def test_profile2() -> str:
+    """Optional second Snowflake profile for testing different auth methods."""
+    profile = _TEST_CONFIG.get("profile2")
+    if not profile:
+        pytest.skip("Second test profile 'profile2' not configured in test_config.toml")
+    return profile
+
+
+@pytest.fixture(scope="session")
 def test_database() -> str:
     """Database to use for integration tests."""
     return _TEST_CONFIG.get("database", "O_CRI")

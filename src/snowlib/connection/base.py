@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Optional, Any, Dict
 from pydantic import SecretStr
 import keyring
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 
 from ..config import load_profile
 
@@ -34,6 +36,10 @@ class BaseConnector:
             profile: Name of the connection profile to load
             **kwargs: Override any connection parameters from the profile
         """
+        # Public attributes for processed authentication credentials
+        self.password: Optional[str] = None
+        self.private_key: Optional[Any] = None
+
         # Load configuration from TOML file
         self._cfg: Dict[str, Any] = load_profile(profile)
         
@@ -43,9 +49,23 @@ class BaseConnector:
         # Store profile name for debugging/repr
         self._profile = profile
         
-        # Process keypair authentication if specified
-        self._process_keypair_auth()
-    
+        # Process authentication credentials
+        self._process_auth()
+
+    def _process_auth(self) -> None:
+        """
+        Processes authentication credentials from the profile.
+        
+        Handles key-pair authentication by loading the private key and
+        handles password authentication by retrieving it from the config.
+        """
+        auth = self._cfg.get("authenticator", "").upper()
+        
+        if auth == "SNOWFLAKE_JWT":
+            self._process_keypair_auth()
+        elif "password" in self._cfg:
+            self.password = self._cfg["password"]
+
     def _process_keypair_auth(self) -> None:
         """
         Process keypair authentication configuration.
@@ -64,14 +84,37 @@ class BaseConnector:
         - Relative paths are rejected to prevent keys in version control
         - Direct passphrase in config is NOT supported
         
-        Note: Snowflake connector handles the actual key loading,
-        we just provide private_key_file and private_key_file_pwd.
+        Note: This method populates self.private_key with a deserialized
+        key object from the cryptography library and adds the passphrase
+        to self._cfg for the Snowflake connector.
         """
-        auth = self._cfg.get("authenticator", "").upper()
+        key_path, passphrase = self._get_key_details()
         
-        if auth != "SNOWFLAKE_JWT":
-            return
+        # If we found a passphrase, add it to config for the Snowflake connector
+        if passphrase:
+            self._cfg["private_key_file_pwd"] = passphrase.get_secret_value()
         
+        # Read the private key bytes and deserialize for SQLAlchemy
+        try:
+            with open(key_path, "rb") as key_file:
+                p_key_bytes = key_file.read()
+
+            self.private_key = serialization.load_pem_private_key(
+                p_key_bytes,
+                password=passphrase.get_secret_value().encode() if passphrase else None,
+                backend=default_backend()
+            )
+        except Exception as e:
+            raise IOError(f"Failed to read or decrypt private key from {key_path}: {e}") from e
+
+    def _get_key_details(self) -> tuple[Path, Optional[SecretStr]]:
+        """
+        Validates key path and retrieves the private key passphrase.
+        
+        Returns:
+            A tuple containing the resolved Path object for the key file
+            and a SecretStr with the passphrase (or None).
+        """
         private_key_file = self._cfg.get("private_key_file")
         if not private_key_file:
             raise ValueError(
@@ -82,100 +125,37 @@ class BaseConnector:
         key_path = Path(private_key_file).expanduser()
         
         # Only allow absolute paths or home directory expansion
-        # Reject relative paths to prevent keys being stored in version control
         if not key_path.is_absolute():
             raise ValueError(
-                f"Private key path must be absolute or use ~ for home directory.\n" +
-                f"Got: {private_key_file}\n\n" +
-                f"Relative paths are not supported to prevent accidentally committing " +
-                f"keys to version control.\n\n" +
-                f"Valid examples:\n" +
-                f"  - Absolute path: K:/snow2.p8 or C:/Users/you/.snowflake/key.p8\n" +
-                f"  - Home directory: ~/.snowflake/rsa_key.p8\n" +
-                f"  - Environment variable: $HOME/.snowflake/rsa_key.p8"
+                f"Private key path must be absolute or use ~ for home directory. Got: {private_key_file}"
             )
         
         if not key_path.exists():
-            raise FileNotFoundError(
-                f"Private key file not found: {key_path}"
-            )
+            raise FileNotFoundError(f"Private key file not found: {key_path}")
+            
+        # --- Passphrase retrieval logic ---
+        passphrase: Optional[SecretStr] = None
         
-        # Update the path to the resolved absolute path
-        self._cfg["private_key_file"] = str(key_path)
-        
-        # Get passphrase from configured sources
-        passphrase = self._get_key_passphrase()
-        
-        # Set private_key_file_pwd for Snowflake connector
-        if passphrase:
-            self._cfg["private_key_file_pwd"] = passphrase.get_secret_value()
-        
-        # Remove our custom config keys that Snowflake doesn't understand
-        self._cfg.pop("private_key_passphrase_env", None)
-        self._cfg.pop("use_keyring", None)
-        self._cfg.pop("keyring_service", None)
-        self._cfg.pop("keyring_username", None)
-    
-    def _get_key_passphrase(self) -> Optional[SecretStr]:
-        """
-        Get the private key passphrase from configured sources.
-        
-        Priority order (only uses sources explicitly configured):
-        1. Custom environment variable (if private_key_passphrase_env is set)
-        2. System keyring (if use_keyring=true or keyring_* params are set)
-        3. None (for unencrypted keys)
-        
-        Note: Direct passphrase in config is NOT supported for security reasons.
-        Use environment variables or Windows Credential Manager instead.
-        
-        Returns:
-            Passphrase as SecretStr, or None if not found/not configured
-        """
-        # 1. Custom environment variable (only if explicitly configured)
-        if "private_key_passphrase_env" in self._cfg:
-            env_var = self._cfg["private_key_passphrase_env"]
-            pwd = os.getenv(env_var)
-            if pwd:
-                return SecretStr(pwd)
-            else:
-                raise ValueError(
-                    f"Environment variable '{env_var}' specified in " +
-                    f"'private_key_passphrase_env' but not found in environment"
-                )
-        
-        # 2. System keyring (only if explicitly configured)
+        # 1. Check environment variable
+        passphrase_env_var = self._cfg.get("private_key_passphrase_env")
+        if passphrase_env_var:
+            env_pass = os.environ.get(passphrase_env_var)
+            if env_pass:
+                passphrase = SecretStr(env_pass)
+
+        # 2. Check keyring (if env var not found or not set)
         use_keyring = self._cfg.get("use_keyring", False)
-        keyring_service = self._cfg.get("keyring_service")
-        keyring_username = self._cfg.get("keyring_username")
-        
-        if use_keyring or keyring_service or keyring_username:
-            # Both service and username are REQUIRED when using keyring
-            if not keyring_service:
-                raise ValueError(
-                    "Keyring enabled but 'keyring_service' not specified in config. " +
-                    "Example: keyring_service = 'snowflake'"
-                )
+        keyring_service = self._cfg.get("keyring_service", f"snowlib.{self._profile}")
+        keyring_username = self._cfg.get("keyring_username", self._cfg.get("user"))
+
+        if not passphrase and use_keyring:
             if not keyring_username:
                 raise ValueError(
-                    "Keyring enabled but 'keyring_username' not specified in config. " +
-                    "Example: keyring_username = 'myuser_keypair'"
+                    "Keyring usage requires 'user' in profile or 'keyring_username' override."
                 )
             
-            try:
-                pwd = keyring.get_password(keyring_service, keyring_username)
-                if pwd:
-                    return SecretStr(pwd)
-                else:
-                    raise ValueError(
-                        f"Keyring configured but no password found for " +
-                        f"service='{keyring_service}', username='{keyring_username}'. " +
-                        f"Store it with: keyring.set_password('{keyring_service}', '{keyring_username}', 'your-passphrase')"
-                    )
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to retrieve passphrase from keyring " +
-                    f"(service='{keyring_service}', username='{keyring_username}'): {e}"
-                ) from e
-        
-        # 3. No passphrase configured (unencrypted key)
-        return None
+            keyring_pass = keyring.get_password(keyring_service, keyring_username)
+            if keyring_pass:
+                passphrase = SecretStr(keyring_pass)
+                
+        return key_path, passphrase

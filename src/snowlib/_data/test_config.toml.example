@@ -6,11 +6,14 @@
 # NOT for general-purpose connection configuration - use connections.toml for that.
 
 [test]
-# Profile to use for tests (from connections.toml)
+# Primary profile for most tests
 # This profile should have permissions to create/drop/truncate tables
 profile = "test"
 
-# Database and schema for test operations
+# Optional second profile for testing different auth methods
+# profile2 = "test2"
+
+# Default database and schema for test operations
 # You may want to provide a dedicated test schema, as tests will create and drop tables
 database = "YOUR_TEST_DATABASE"
 schema = "YOUR_TEST_SCHEMA"

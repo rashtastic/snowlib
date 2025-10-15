@@ -44,7 +44,7 @@ from snowlib.primitives import (
 # Layer 3: I/O with name resolution
 from snowlib.io import read, write, query
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 __all__ = [
     # Layer 1
     "load_profile", 
@@ -80,3 +80,6 @@ __all__ = [
     "write",
     "query",
 ]
+
+# Don't import optional dependencies by default:
+# Users will do: from snowlib.sqlalchemy import create_engine_from_profile

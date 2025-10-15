@@ -48,6 +48,10 @@ Repository = "https://github.com/rashtastic/snowlib.git"
 "Bug Tracker" = "https://github.com/rashtastic/snowlib/issues"
 
 [project.optional-dependencies]
+sqlalchemy = [
+    "sqlalchemy>=2.0",
+    "snowflake-sqlalchemy>=1.6.0",
+]
 pandas = [
     "pandas",
     "pyarrow; python_version<'3.14'",  # No Windows wheel for 3.14 yet
@@ -70,17 +74,13 @@ dev = [
     "mypy",
     "pyright",
     "types-pyyaml",
-    "pandas-stubs",  # Type stubs for pandas (dev/type-checking only)
+    "pandas-stubs",
     "ipykernel",
     "tox",
     # Distribution
     "pip-licenses",
-    # Optional
-    "snowflake-snowpark-python[modin]>=1.9.0",
-    "xlrd",
-    "xlsxwriter",
-    "openpyxl",
-    "html5lib",
+    # All optional dependencies
+    "snowlib[sqlalchemy,pandas,snowpark,excel]",
 ]
 
 [tool.setuptools]
