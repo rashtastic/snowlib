@@ -43,7 +43,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/rashtastic/snowlib"
-Documentation = "https://github.com/rashtastic/snowlib/tree/main/docs"
+Documentation = "https://github.com/rashtastic/snowlib"
 Repository = "https://github.com/rashtastic/snowlib.git"
 "Bug Tracker" = "https://github.com/rashtastic/snowlib/issues"
 

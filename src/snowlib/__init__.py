@@ -44,7 +44,7 @@ from snowlib.primitives import (
 # Layer 3: I/O with name resolution
 from snowlib.io import read, write, query
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = [
     # Layer 1
     "load_profile", 
