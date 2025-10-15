@@ -1,5 +1,12 @@
 # ❄️ SnowLib
 
+[![PyPI](https://img.shields.io/pypi/v/snowlib.svg)](https://pypi.org/project/snowlib/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/snowlib.svg)](https://pypi.org/project/snowlib/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![DOI (latest)](https://zenodo.org/badge/DOI/10.5281/zenodo.17354788.svg)](https://doi.org/10.5281/zenodo.17354788)
+[![DOI (v0.1.1)](https://zenodo.org/badge/DOI/10.5281/zenodo.17354789.svg)](https://doi.org/10.5281/zenodo.17354789)
+
+
 Python-Snowflake utilities
 
 ```bash
