@@ -7,7 +7,8 @@ name = "snowlib"
 dynamic = ["version"]
 description = "Python-Snowflake utilities"
 readme = {file = "README.md", content-type = "text/markdown"}
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE", "licenses/THIRD_PARTY.md"]
 requires-python = ">=3.9"
 authors = [{name = "Rashad Aziz"}]
 maintainers = [{name = "Rashad Aziz"}]
@@ -84,7 +85,6 @@ dev = [
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-license-files = ["LICENSE", "licenses/THIRD_PARTY.md"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
