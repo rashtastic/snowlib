@@ -52,10 +52,6 @@ sqlalchemy = [
     "sqlalchemy>=2.0",
     "snowflake-sqlalchemy>=1.6.0",
 ]
-pandas = [
-    "pandas",
-    "pyarrow; python_version<'3.14'",  # No Windows wheel for 3.14 yet
-]
 snowpark = [
     "snowflake-connector-python[pandas]<4.0.0,>=3.17.0; python_version < '3.14'",
     "snowflake-connector-python<4.0.0,>=3.17.0; python_version >= '3.14'",
@@ -80,7 +76,7 @@ dev = [
     # Distribution
     "pip-licenses",
     # All optional dependencies
-    "snowlib[sqlalchemy,pandas,snowpark,excel]",
+    "snowlib[sqlalchemy,snowpark,excel]",
 ]
 
 [tool.setuptools]

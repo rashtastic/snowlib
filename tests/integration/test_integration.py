@@ -10,7 +10,7 @@ pytest tests/integration/test_integration.py -v -m "not integration"
 import pytest
 
 from snowlib import SnowflakeConnector, SnowparkConnector, load_profile, list_profiles
-from snowlib.config import get_default_config_path
+from snowlib.connection import get_default_config_path
 
 
 # Mark all tests in this module as integration tests
@@ -299,3 +299,83 @@ class TestMultipleProfiles:
         # Both should work (users might be same or different)
         assert user1 is not None
         assert user2 is not None
+
+
+class TestSnowflakeContextProperties:
+    """Tests for SnowflakeContext session properties."""
+    
+    @pytest.fixture(scope="class")
+    def ctx(self, test_profile):
+        """Shared SnowflakeContext for all tests in class."""
+        from snowlib.context import SnowflakeContext
+        context = SnowflakeContext(profile=test_profile)
+        yield context
+        context.close()
+    
+    def test_current_database(self, ctx, test_database):
+        """Test current_database property."""
+        db = ctx.current_database
+        
+        assert isinstance(db, str)
+        assert len(db) > 0
+        assert db == test_database.upper()
+    
+    def test_current_schema(self, ctx, test_schema):
+        """Test current_schema property."""
+        schema = ctx.current_schema
+        
+        assert isinstance(schema, str)
+        assert len(schema) > 0
+        assert schema == test_schema.upper()
+    
+    def test_current_warehouse(self, ctx):
+        """Test current_warehouse property."""
+        wh = ctx.current_warehouse
+        
+        assert isinstance(wh, str)
+        assert len(wh) > 0
+        # Warehouse should be uppercase per Snowflake conventions
+        assert wh.isupper()
+    
+    def test_current_role(self, ctx):
+        """Test current_role property."""
+        role = ctx.current_role
+        
+        assert isinstance(role, str)
+        assert len(role) > 0
+        # Role should be uppercase per Snowflake conventions
+        assert role.isupper()
+    
+    def test_current_user(self, ctx, test_profile):
+        """Test current_user property."""
+        from snowlib import load_profile
+        config = load_profile(test_profile)
+        expected_user = config["user"].upper()
+        
+        user = ctx.current_user
+        
+        assert isinstance(user, str)
+        assert len(user) > 0
+        assert user.upper() == expected_user
+    
+    def test_current_account(self, ctx):
+        """Test current_account property."""
+        account = ctx.current_account
+        
+        assert isinstance(account, str)
+        assert len(account) > 0
+    
+    def test_current_region(self, ctx):
+        """Test current_region property."""
+        region = ctx.current_region
+        
+        assert isinstance(region, str)
+        assert len(region) > 0
+    
+    def test_all_properties_are_uppercase(self, ctx):
+        """Test that session identifiers follow Snowflake uppercase convention."""
+        # Database, schema, warehouse, role should all be uppercase
+        assert ctx.current_database.isupper()
+        assert ctx.current_schema.isupper()
+        assert ctx.current_warehouse.isupper()
+        assert ctx.current_role.isupper()

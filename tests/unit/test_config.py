@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from snowlib.config import load_profile, list_profiles, resolve_config_path, get_default_config_path
+from snowlib.connection import load_profile, list_profiles, resolve_config_path, get_default_config_path
 
 
 class TestLoadProfile:

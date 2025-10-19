@@ -1,4 +1,4 @@
-"""Configuration loading for Snowflake connection profiles."""
+"""Profile loading for Snowflake connections."""
 
 import sys
 from pathlib import Path
@@ -23,26 +23,7 @@ def load_profile(
     profile: str, 
     path: Optional[Union[str, Path]] = None
 ) -> Dict[str, Any]:
-    """
-    Load a Snowflake connection profile from connections.toml file.
-    
-    Args:
-        profile: Name of the profile to load
-        path: Optional explicit path to connections.toml file.
-              If None, searches in standard locations.
-    
-    Returns:
-        Dictionary containing connection parameters for the profile
-    
-    Raises:
-        FileNotFoundError: If connections.toml file is not found
-        KeyError: If the specified profile doesn't exist in the file
-    
-    Example:
-        >>> config = load_profile("dev")
-        >>> config
-        {'account': 'myaccount', 'user': 'myuser', ...}
-    """
+    """Load a Snowflake connection profile from connections.toml file"""
     config_file = resolve_config_path(path)
 
     if not config_file.exists():
@@ -65,19 +46,7 @@ def load_profile(
 
 
 def list_profiles(path: Optional[Union[str, Path]] = None) -> list[str]:
-    """
-    List all available profiles in connections.toml file.
-    
-    Args:
-        path: Optional explicit path to connections.toml file
-    
-    Returns:
-        List of profile names
-    
-    Example:
-        >>> list_profiles()
-        ['default', 'dev', 'prod']
-    """
+    """List all available profile names in connections.toml file"""
     config_file = resolve_config_path(path)
     
     if not config_file.exists():

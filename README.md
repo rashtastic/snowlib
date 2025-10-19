@@ -4,8 +4,6 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/snowlib.svg)](https://pypi.org/project/snowlib/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![DOI (latest)](https://zenodo.org/badge/DOI/10.5281/zenodo.17354788.svg)](https://doi.org/10.5281/zenodo.17354788)
-[![DOI (v0.1.1)](https://zenodo.org/badge/DOI/10.5281/zenodo.17354789.svg)](https://doi.org/10.5281/zenodo.17354789)
-
 
 Python-Snowflake utilities
 
@@ -24,8 +22,8 @@ pip install snowlib[excel]
 | **snowflake-snowpark-python** | - | ≥1.9.0 |
 | **sqlalchemy** | ≥2.0 | ≥2.0 |
 | **snowflake-sqlalchemy** | ≥1.6.0 | ≥1.6.0 |
+| **pandas** | 2.3.3 | 2.3.1 |
 | **pyarrow** | - | ✓ |
-| **pandas** | ✓ | ✓ |
 
 **Notes:**
 - Version ranges shown when specified in `pyproject.toml`

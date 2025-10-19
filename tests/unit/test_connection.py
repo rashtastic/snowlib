@@ -39,7 +39,7 @@ schema = "DEV_SCHEMA"
     
     def test_init_loads_default_profile(self, temp_config_file):
         """Test that connector initializes with default profile."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowflakeConnector(profile="default")
             
             assert connector._cfg["account"] == "test-account.region"
@@ -48,7 +48,7 @@ schema = "DEV_SCHEMA"
     
     def test_init_loads_dev_profile(self, temp_config_file):
         """Test that connector can load non-default profiles."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowflakeConnector(profile="dev")
             
             assert connector._cfg["account"] == "dev-account.region"
@@ -57,7 +57,7 @@ schema = "DEV_SCHEMA"
     
     def test_runtime_overrides(self, temp_config_file):
         """Test that kwargs override config values."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowflakeConnector(
                 profile="default",
                 warehouse="OVERRIDE_WH",
@@ -72,7 +72,7 @@ schema = "DEV_SCHEMA"
     
     def test_connection_lazy_initialization(self, temp_config_file):
         """Test that connection is not created until connect() is called."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowflakeConnector(profile="default")
             
             assert connector._connection is None
@@ -87,7 +87,7 @@ schema = "DEV_SCHEMA"
         mock_connection.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_connection
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowflakeConnector(profile="default")
             conn, cur = connector.connect()
             
@@ -106,7 +106,7 @@ schema = "DEV_SCHEMA"
         mock_connection.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_connection
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowflakeConnector(profile="default")
             
             # First connect
@@ -127,7 +127,7 @@ schema = "DEV_SCHEMA"
         mock_connection.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_connection
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowflakeConnector(profile="default")
             connector.connect()
             connector.close()
@@ -146,7 +146,7 @@ schema = "DEV_SCHEMA"
         mock_connection.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_connection
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             with SnowflakeConnector(profile="default") as (conn, cur):
                 assert conn == mock_connection
                 assert cur == mock_cursor
@@ -163,7 +163,7 @@ schema = "DEV_SCHEMA"
         mock_connection.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_connection
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             with pytest.raises(RuntimeError):
                 with SnowflakeConnector(profile="default") as (_conn, _cur):
                     raise RuntimeError("Test exception")
@@ -174,7 +174,7 @@ schema = "DEV_SCHEMA"
     
     def test_repr_before_connection(self, temp_config_file):
         """Test string representation before connecting."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowflakeConnector(profile="dev")
             repr_str = repr(connector)
             
@@ -190,7 +190,7 @@ schema = "DEV_SCHEMA"
         mock_connection.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_connection
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowflakeConnector(profile="default")
             connector.connect()
             repr_str = repr(connector)
@@ -221,7 +221,7 @@ database = "TEST_DB"
     @patch('snowflake.snowpark.Session')
     def test_init_loads_profile(self, mock_session_class, temp_config_file):
         """Test that SnowparkConnector loads profile on init."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowparkConnector(profile="default")
             
             assert connector._cfg["account"] == "test-account.region"
@@ -230,7 +230,7 @@ database = "TEST_DB"
     @patch('snowflake.snowpark.Session')
     def test_runtime_overrides(self, mock_session_class, temp_config_file):
         """Test that kwargs override config values for Snowpark."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowparkConnector(
                 profile="default",
                 warehouse="LARGE_WH",
@@ -243,7 +243,7 @@ database = "TEST_DB"
     @patch('snowflake.snowpark.Session')
     def test_session_lazy_initialization(self, mock_session_class, temp_config_file):
         """Test that session is not created until session() is called."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowparkConnector(profile="default")
             
             assert connector._session is None
@@ -257,7 +257,7 @@ database = "TEST_DB"
         mock_builder.configs.return_value.create.return_value = mock_session_instance
         mock_session_class.builder = mock_builder
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowparkConnector(profile="default")
             session = connector.session()
             
@@ -273,7 +273,7 @@ database = "TEST_DB"
         mock_builder.configs.return_value.create.return_value = mock_session_instance
         mock_session_class.builder = mock_builder
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowparkConnector(profile="default")
             
             session1 = connector.session()
@@ -291,7 +291,7 @@ database = "TEST_DB"
         mock_builder.configs.return_value.create.return_value = mock_session_instance
         mock_session_class.builder = mock_builder
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowparkConnector(profile="default")
             connector.session()
             connector.close()
@@ -303,7 +303,7 @@ database = "TEST_DB"
     @patch('snowflake.snowpark.Session')
     def test_repr_before_session(self, mock_session_class, temp_config_file):
         """Test string representation before creating session."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowparkConnector(profile="default")
             repr_str = repr(connector)
             
@@ -319,7 +319,7 @@ database = "TEST_DB"
         mock_builder.configs.return_value.create.return_value = mock_session_instance
         mock_session_class.builder = mock_builder
         
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             connector = SnowparkConnector(profile="default")
             connector.session()
             repr_str = repr(connector)
@@ -330,7 +330,7 @@ database = "TEST_DB"
     
     def test_missing_snowpark_raises_import_error(self, temp_config_file):
         """Test that missing snowpark package raises helpful error."""
-        with patch('snowlib.config.config.resolve_config_path', return_value=temp_config_file):
+        with patch('snowlib.connection.profiles.resolve_config_path', return_value=temp_config_file):
             with patch.dict('sys.modules', {'snowflake.snowpark': None}):
                 with pytest.raises(ImportError) as exc_info:
                     # Force reimport to trigger the ImportError
@@ -341,3 +341,5 @@ database = "TEST_DB"
                     TestConnector(profile="default")
                 
                 assert "snowpark" in str(exc_info.value).lower()
+
+

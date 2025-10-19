@@ -1,21 +1,20 @@
-"""Unit tests for QueryJob class."""
+"""Unit tests for AsyncQuery class (formerly QueryJob)."""
 
 from unittest.mock import MagicMock
 
 import pytest
 from snowflake.connector.constants import QueryStatus
 
-from snowlib.primitives.job import QueryJob
-from snowlib.primitives.result import QueryResult
+from snowlib.primitives import AsyncQuery, QueryResult
 
 
-class TestQueryJob:
-    """Tests for the QueryJob class."""
+class TestAsyncQuery:
+    """Tests for the AsyncQuery class."""
 
     def test_init(self):
-        """Test QueryJob initialization."""
+        """Test AsyncQuery initialization."""
         mock_conn = MagicMock()
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id-123",
             sql="SELECT 1",
             _conn=mock_conn
@@ -38,7 +37,7 @@ class TestQueryJob:
         mock_cursor.rowcount = 5
         mock_cursor.query = "SELECT * FROM table"
         
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id",
             sql="SELECT * FROM table",
             _conn=mock_conn
@@ -67,7 +66,7 @@ class TestQueryJob:
         # Mock query failure - make get_results_from_sfqid raise an exception
         mock_cursor.get_results_from_sfqid.side_effect = Exception("Query failed")
         
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id",
             sql="SELECT * FROM table",
             _conn=mock_conn
@@ -86,7 +85,7 @@ class TestQueryJob:
         mock_conn.get_query_status.return_value = QueryStatus.RUNNING
         mock_conn.is_still_running.return_value = True
         
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id",
             sql="SELECT * FROM table",
             _conn=mock_conn
@@ -102,7 +101,7 @@ class TestQueryJob:
         mock_conn.get_query_status.return_value = QueryStatus.SUCCESS
         mock_conn.is_still_running.return_value = False
         
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id",
             sql="SELECT * FROM table",
             _conn=mock_conn
@@ -119,7 +118,7 @@ class TestQueryJob:
         mock_conn.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = ("Statement executed successfully: query ... cancelled.",)
         
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id",
             sql="SELECT * FROM huge_table",
             _conn=mock_conn
@@ -139,7 +138,7 @@ class TestQueryJob:
         mock_conn.cursor.return_value = mock_cursor
         mock_cursor.fetchone.return_value = ("Statement executed successfully: query ... not found.",)
         
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id",
             sql="SELECT * FROM huge_table",
             _conn=mock_conn
@@ -158,7 +157,7 @@ class TestQueryJob:
         mock_conn.cursor.return_value = mock_cursor
         mock_cursor.execute.side_effect = Exception("Abort failed")
         
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id",
             sql="SELECT * FROM huge_table",
             _conn=mock_conn
@@ -170,9 +169,9 @@ class TestQueryJob:
         mock_cursor.close.assert_called_once()
 
     def test_frozen_dataclass(self):
-        """Test that QueryJob is frozen (immutable)."""
+        """Test that AsyncQuery is frozen (immutable)."""
         mock_conn = MagicMock()
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id",
             sql="SELECT 1",
             _conn=mock_conn
@@ -187,7 +186,7 @@ class TestQueryJob:
         mock_conn = MagicMock()
         mock_conn.get_query_status.return_value = QueryStatus.SUCCESS
         
-        job = QueryJob(
+        job = AsyncQuery(
             query_id="test-query-id",
             sql="SELECT 1",
             _conn=mock_conn

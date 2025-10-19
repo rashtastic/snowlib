@@ -1,26 +1,34 @@
 """Integration tests for primitives module.
 
-These tests run against a real Snowflake instance using SSO authentication.
+Tests for Layer 2 primitives - stateless SQL execution functions.
 
-These tests now use SnowflakeContext for connection reuse, which means:
+This focuses on:
+- Query execution (execute_sql, fetch_one, fetch_all, fetch_df)
+- Streaming (fetch_batches)
+- Async execution (execute_sql_async, AsyncQuery)
+
+These tests use SnowflakeContext for connection reuse, which means:
 - Each test CLASS only authenticates ONCE (one browser popup per class if SSO)
 - Much faster test execution
 - Better resource usage
+
+Note: Data I/O and metadata operations are tested in test_models_integration.py
 """
 
 import pytest
 import pandas as pd
 import uuid
+from typing import Iterator
+from snowlib.primitives import SnowflakeContext
 
 
 @pytest.fixture(scope="class")
-def ctx(test_profile):
+def ctx(test_profile) -> Iterator['SnowflakeContext']:
     """Shared SnowflakeContext for all tests in a class.
     
     This means all tests in a class share ONE connection,
     resulting in only ONE browser popup per test class
     """
-    from snowlib.primitives import SnowflakeContext
     
     context = SnowflakeContext(profile=test_profile)
     yield context
@@ -61,92 +69,41 @@ class TestExecutionPrimitives:
         result = execute_sql(f"DROP TABLE {qualified_test_table}", context=ctx)
         assert isinstance(result, QueryResult)
     
-    def test_fetch_one_current_timestamp(self, ctx):
-        """Test fetch_one with CURRENT_TIMESTAMP."""
-        from snowlib.primitives import fetch_one
+    def test_fetch_one(self, ctx, qualified_test_table):
+        """Test fetch_one returns single row from query."""
+        from snowlib.primitives import execute_sql
         
-        result = fetch_one("SELECT CURRENT_TIMESTAMP()", context=ctx)
-        
-        assert result is not None
-        assert len(result) == 1
-        # Should return a timestamp
-        assert result[0] is not None
-    
-    def test_fetch_one_no_results(self, ctx, qualified_test_table):
-        """Test fetch_one with no results."""
-        from snowlib.primitives import execute_sql, fetch_one
-        
-        # Create empty table
-        execute_sql(f"CREATE TABLE {qualified_test_table} (id INT)", context=ctx)
-        
-        try:
-            result = fetch_one(f"SELECT * FROM {qualified_test_table}", context=ctx)
-            assert result is None
-        finally:
-            execute_sql(f"DROP TABLE {qualified_test_table}", context=ctx)
-    
-    def test_fetch_all_with_data(self, ctx, qualified_test_table):
-        """Test fetch_all returns all rows."""
-        from snowlib.primitives import execute_sql, fetch_all
-        
-        # Create and populate table
-        execute_sql(f"CREATE TABLE {qualified_test_table} (id INT)", context=ctx)
-        execute_sql(f"INSERT INTO {qualified_test_table} VALUES (1), (2), (3)", context=ctx)
-        
-        try:
-            result = fetch_all(f"SELECT * FROM {qualified_test_table} ORDER BY id", context=ctx)
-            
-            assert len(result) == 3
-            assert result[0] == (1,)
-            assert result[1] == (2,)
-            assert result[2] == (3,)
-        finally:
-            execute_sql(f"DROP TABLE {qualified_test_table}", context=ctx)
-    
-    def test_fetch_df_returns_dataframe(self, ctx, qualified_test_table, check_pandas_integration):
-        """Test fetch_df returns DataFrame with correct data."""
-        from snowlib.primitives import execute_sql, fetch_df
-        
-        # Create and populate table
+        # Create table with test data
         execute_sql(f"CREATE TABLE {qualified_test_table} (id INT, name VARCHAR(50))", context=ctx)
-        execute_sql(f"""
-            INSERT INTO {qualified_test_table} VALUES 
-            (1, 'Alice'), 
-            (2, 'Bob'), 
-            (3, 'Charlie')
-        """, context=ctx)
+        execute_sql(f"INSERT INTO {qualified_test_table} VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')", context=ctx)
         
         try:
-            df = fetch_df(f"SELECT * FROM {qualified_test_table} ORDER BY id", context=ctx)
+            # Test fetch_one with LIMIT 1
+            result = execute_sql(f"SELECT * FROM {qualified_test_table} ORDER BY id LIMIT 1", context=ctx)
+            row = result.fetch_one()
             
-            assert isinstance(df, pd.DataFrame)
-            assert len(df) == 3
-            assert "id" in df.columns  # Lowercase by default
-            assert "name" in df.columns
-            assert df["id"].tolist() == [1, 2, 3]
-            assert df["name"].tolist() == ["Alice", "Bob", "Charlie"]
-        finally:
-            execute_sql(f"DROP TABLE {qualified_test_table}", context=ctx)
-    
-    def test_fetch_df_empty_table(self, ctx, qualified_test_table, check_pandas_integration):
-        """Test fetch_df with empty table preserves columns."""
-        from snowlib.primitives import execute_sql, fetch_df
-        
-        execute_sql(f"CREATE TABLE {qualified_test_table} (id INT, value VARCHAR(50))", context=ctx)
-        
-        try:
-            df = fetch_df(f"SELECT * FROM {qualified_test_table}", context=ctx)
+            assert row is not None
+            assert row[0] == 1
+            assert row[1] == "Alice"
             
-            assert isinstance(df, pd.DataFrame)
-            assert len(df) == 0
-            assert "id" in df.columns
-            assert "value" in df.columns
+            # Test fetch_one with WHERE clause
+            result = execute_sql(f"SELECT name FROM {qualified_test_table} WHERE id = 2", context=ctx)
+            row = result.fetch_one()
+            
+            assert row is not None
+            assert row[0] == "Bob"
+            
+            # Test fetch_one returns None for empty result
+            result = execute_sql(f"SELECT * FROM {qualified_test_table} WHERE id = 999", context=ctx)
+            row = result.fetch_one()
+            
+            assert row is None
         finally:
             execute_sql(f"DROP TABLE {qualified_test_table}", context=ctx)
     
     def test_execute_block_multi_statement(self, ctx, qualified_test_table):
         """Test execute_block with multiple statements."""
-        from snowlib.primitives import execute_block, execute_sql
+        from snowlib.primitives import execute_block, execute_sql, QueryResult
         
         sql_script = f"""
         CREATE TEMP TABLE {qualified_test_table} (id INT);
@@ -160,193 +117,19 @@ class TestExecutionPrimitives:
             # Should have results from all statements
             assert len(results) >= 3
             
-            # Last result should be from SELECT
+            # Last result should be from SELECT - it's a QueryResult
             select_results = results[-1]
-            assert len(select_results) == 3
+            assert isinstance(select_results, QueryResult)
+            
+            # Fetch the actual rows from the QueryResult
+            rows = select_results.fetch_all()
+            assert len(rows) == 3
         finally:
             # Cleanup (TEMP table should auto-cleanup, but be safe)
             try:
-                execute_sql(f"DROP TABLE IF EXISTS {test_table_name}", context=ctx)
+                execute_sql(f"DROP TABLE IF EXISTS {qualified_test_table}", context=ctx)
             except:  # noqa: E722
                 pass
-
-
-class TestDataPrimitives:
-    """Integration tests for data I/O primitives."""
-    
-    def test_read_write_table_round_trip(self, ctx, test_table_name, test_database, test_schema, qualified_test_table, check_pandas_integration):
-        """Test writing and reading a table."""
-        from snowlib.primitives import write_table, read_table, execute_sql
-        
-        # Create test DataFrame
-        df_original = pd.DataFrame({
-            "id": [1, 2, 3],
-            "value": [10.5, 20.5, 30.5],
-            "name": ["alpha", "beta", "gamma"]
-        })
-        
-        try:
-            # Write table with explicit database and schema
-            success = write_table(
-                df_original, 
-                test_table_name, 
-                schema=test_schema,
-                database=test_database,
-                mode="replace",
-                context=ctx
-            )
-            assert success is True
-            
-            # Read back with explicit database and schema
-            df_result = read_table(test_table_name, schema=test_schema, database=test_database, context=ctx)
-            
-            assert len(df_result) == 3
-            assert "id" in df_result.columns
-            assert "value" in df_result.columns
-            assert "name" in df_result.columns
-            
-            # Sort for comparison
-            df_result = df_result.sort_values("id").reset_index(drop=True)
-            assert df_result["id"].tolist() == [1, 2, 3]
-            assert df_result["name"].tolist() == ["alpha", "beta", "gamma"]
-        finally:
-            execute_sql(f"DROP TABLE IF EXISTS {qualified_test_table}", context=ctx)
-    
-    def test_write_table_mode_append(self, ctx, test_table_name, test_database, test_schema, qualified_test_table, check_pandas_integration):
-        """Test write_table with append mode."""
-        from snowlib.primitives import write_table, read_table, execute_sql
-        
-        df1 = pd.DataFrame({"id": [1, 2], "value": [10, 20]})
-        df2 = pd.DataFrame({"id": [3, 4], "value": [30, 40]})
-        
-        try:
-            # Write first batch
-            write_table(df1, test_table_name, schema=test_schema, database=test_database, mode="replace", context=ctx)
-            
-            # Append second batch
-            write_table(df2, test_table_name, schema=test_schema, database=test_database, mode="append", context=ctx)
-            
-            # Read back
-            df_result = read_table(test_table_name, schema=test_schema, database=test_database, context=ctx)
-            
-            assert len(df_result) == 4
-            assert sorted(df_result["id"].tolist()) == [1, 2, 3, 4]
-        finally:
-            execute_sql(f"DROP TABLE IF EXISTS {qualified_test_table}", context=ctx)
-    
-    def test_write_table_mode_fail(self, ctx, test_table_name, test_database, test_schema, qualified_test_table, check_pandas_integration):
-        """Test write_table in fail mode raises error if table exists."""
-        from snowlib.primitives import write_table, execute_sql
-        from snowflake.connector.errors import ProgrammingError
-        
-        df = pd.DataFrame({"id": [1, 2]})
-        
-        try:
-            # First write succeeds
-            write_table(df, test_table_name, schema=test_schema, database=test_database, mode="replace", context=ctx)
-            
-            # Second write with mode="fail" should raise error
-            with pytest.raises(ProgrammingError, match="already exists"):
-                write_table(df, test_table_name, schema=test_schema, database=test_database, mode="fail", context=ctx)
-        finally:
-            execute_sql(f"DROP TABLE IF EXISTS {qualified_test_table}", context=ctx)
-
-
-class TestMetadataPrimitives:
-    """Integration tests for metadata primitives."""
-    
-    def test_get_columns(self, ctx, test_table_name, qualified_test_table, test_schema, test_database, check_pandas_integration):
-        """Test get_columns returns column names."""
-        from snowlib.primitives import execute_sql, get_columns
-        
-        execute_sql((
-            f"CREATE TABLE {qualified_test_table} "
-            "(id INT, name VARCHAR(50), value FLOAT, created_at TIMESTAMP)"
-        ), context=ctx)
-        
-        try:
-            columns = get_columns(test_table_name, test_schema, test_database, context=ctx)
-            
-            assert isinstance(columns, list)
-            assert len(columns) == 4
-            # Should be uppercase by default
-            assert "ID" in columns
-            assert "NAME" in columns
-            assert "VALUE" in columns
-            assert "CREATED_AT" in columns
-            
-            # Test lowercase
-            columns_lower = get_columns(test_table_name, test_schema, test_database, uppercase=False, context=ctx)
-            assert "id" in columns_lower
-        finally:
-            execute_sql(f"DROP TABLE {qualified_test_table}", context=ctx)
-    
-    def test_table_exists(self, ctx, test_table_name, qualified_test_table, test_schema, test_database, check_pandas_integration):
-        """Test table_exists returns correct boolean."""
-        from snowlib.primitives import execute_sql, table_exists
-        
-        # Table doesn't exist yet
-        assert table_exists(test_table_name, test_schema, test_database, context=ctx) is False
-        
-        # Create table
-        execute_sql(f"CREATE TABLE {qualified_test_table} (id INT)", context=ctx)
-        
-        try:
-            # Now it exists
-            assert table_exists(test_table_name, test_schema, test_database, context=ctx) is True
-        finally:
-            execute_sql(f"DROP TABLE {qualified_test_table}", context=ctx)
-            
-            # After drop, doesn't exist
-            assert table_exists(test_table_name, test_schema, test_database, context=ctx) is False
-    
-    def test_list_tables(self, ctx, test_table_name, qualified_test_table, test_schema, test_database, check_pandas_integration):
-        """Test list_tables returns table list."""
-        from snowlib.primitives import execute_sql, list_tables
-        
-        # Create test table
-        execute_sql(f"CREATE TABLE {qualified_test_table} (id INT)", context=ctx)
-        
-        try:
-            # List tables again
-            tables = list_tables(test_schema, test_database, context=ctx)
-            
-            assert isinstance(tables, list)
-            assert len(tables) > 0
-            # Table name should be in the list (might be uppercase)
-            assert test_table_name.upper() in tables
-        finally:
-            # Use fully qualified name for DROP
-            execute_sql(f"DROP TABLE {qualified_test_table}", context=ctx)
-    
-    def test_get_current_context(self, test_profile):
-        """Test get_current_* functions with test profile.
-        
-        Note: These functions use context parameter to specify which profile to use.
-        """
-        from snowlib.primitives import (
-            get_current_database,
-            get_current_schema,
-            get_current_warehouse,
-            get_current_role
-        )
-        
-        # All should return non-empty strings
-        db = get_current_database(context=test_profile)
-        assert isinstance(db, str)
-        assert len(db) > 0
-        
-        schema = get_current_schema(context=test_profile)
-        assert isinstance(schema, str)
-        assert len(schema) > 0
-        
-        wh = get_current_warehouse(context=test_profile)
-        assert isinstance(wh, str)
-        assert len(wh) > 0
-        
-        role = get_current_role(context=test_profile)
-        assert isinstance(role, str)
-        assert len(role) > 0
 
 
 class TestStreamingPrimitives:
@@ -354,7 +137,7 @@ class TestStreamingPrimitives:
     
     def test_fetch_batches(self, ctx, qualified_test_table, check_pandas_integration):
         """Test fetch_batches yields DataFrame batches."""
-        from snowlib.primitives import execute_sql, fetch_batches
+        from snowlib.primitives import execute_sql
         
         # Create table with 100 rows
         execute_sql(f"CREATE TABLE {qualified_test_table} (id INT)", context=ctx)
@@ -367,11 +150,8 @@ class TestStreamingPrimitives:
             total_rows = 0
             batch_count = 0
             
-            for batch_df in fetch_batches(
-                f"SELECT * FROM {qualified_test_table}",
-                context=ctx,
-                batch_size=30
-            ):
+            result = execute_sql(f"SELECT * FROM {qualified_test_table}", context=ctx)
+            for batch_df in result.fetch_batches():
                 assert isinstance(batch_df, pd.DataFrame)
                 assert "id" in batch_df.columns
                 total_rows += len(batch_df)
@@ -390,14 +170,13 @@ class TestAsyncExecution:
 
     def test_execute_sql_async_basic(self, ctx, check_pandas_integration):
         """Test basic async execution with a simple query."""
-        from snowlib.primitives import execute_sql_async
-        from snowlib.primitives.job import QueryJob
+        from snowlib.primitives import execute_sql_async, AsyncQuery
         
         # Submit async query
         job = execute_sql_async("SELECT 1 as test_col", context=ctx)
         
-        # Verify we got a QueryJob back
-        assert isinstance(job, QueryJob)
+        # Verify we got a AsyncQuery back
+        assert isinstance(job, AsyncQuery)
         assert job.query_id is not None
         assert job.sql == "SELECT 1 as test_col"
         

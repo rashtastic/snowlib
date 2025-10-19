@@ -4,49 +4,44 @@ snowlib - Python-Snowflake utilities
 Code is organized in layers
 - config/ and connection/ as the interface for Snowflake packages
 - primitives/ wraps these in low-level functions
-- io/ is the beginning of higher-level convenience functions
+- client/ is the beginning of higher-level convenience functions
 
 Likely to expand to cortex and leaning more into snowpark
 """
 
 # Layer 1: Core connectivity
-from snowlib.config import load_profile, list_profiles
+from snowlib.connection import load_profile, list_profiles
 from snowlib.connection import SnowflakeConnector, SnowparkConnector
+from snowlib.context import SnowflakeContext
 
 # Layer 2: Primitives
 from snowlib.primitives import (
-    # Context
-    SnowflakeContext,
+    # Query results
     QueryResult,
-    QueryJob,
+    AsyncQuery,
     # Execution
     execute_sql,
     execute_sql_async,
-    fetch_one,
-    fetch_all,
-    fetch_df,
     execute_block,
-    # Data I/O
-    read_table,
-    write_table,
-    # Metadata
-    get_columns,
-    table_exists,
-    list_tables,
-    get_current_database,
-    get_current_schema,
-    get_current_warehouse,
-    get_current_role,
-    # Streaming
-    fetch_batches,
+    query,
+    Executor,
 )
 
-# Layer 3: I/O with name resolution
-from snowlib.io import read, write, query
+# Layer 3: Models (OOP interface for Snowflake objects)
+from snowlib.models import (
+    Database,
+    Schema,
+    Table,
+    View,
+    MaterializedView,
+    DynamicTable,
+    Column,
+    Show,
+)
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
-    # Layer 1
+    # Layer 1: Configuration & Connection
     "load_profile", 
     "list_profiles",
     "SnowflakeConnector",
@@ -54,32 +49,20 @@ __all__ = [
     # Layer 2: Context
     "SnowflakeContext",
     "QueryResult",
-    "QueryJob",
+    "AsyncQuery",
     # Layer 2: Execution
     "execute_sql",
     "execute_sql_async",
-    "fetch_one",
-    "fetch_all",
-    "fetch_df",
     "execute_block",
-    # Layer 2: Data I/O
-    "read_table",
-    "write_table",
-    # Layer 2: Metadata
-    "get_columns",
-    "table_exists",
-    "list_tables",
-    "get_current_database",
-    "get_current_schema",
-    "get_current_warehouse",
-    "get_current_role",
-    # Layer 2: Streaming
-    "fetch_batches",
-    # Layer 3: I/O
-    "read",
-    "write",
     "query",
+    "Executor",
+    # Layer 3: Models (OOP interface)
+    "Database",
+    "Schema",
+    "Table",
+    "View",
+    "MaterializedView",
+    "DynamicTable",
+    "Column",
+    "Show",
 ]
-
-# Don't import optional dependencies by default:
-# Users will do: from snowlib.sqlalchemy import create_engine_from_profile

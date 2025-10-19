@@ -16,7 +16,7 @@ else:
         )
 
 import pytest
-from snowlib.config import CONF_DIR
+from snowlib.connection import CONF_DIR
 
 
 def _load_test_config() -> Dict[str, Any]:

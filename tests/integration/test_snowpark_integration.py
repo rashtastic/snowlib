@@ -9,7 +9,15 @@ Run with: pytest tests/test_snowpark_integration.py -v
 import pytest
 
 from snowlib import SnowparkConnector, load_profile
-from snowlib.config import get_default_config_path
+from snowlib.connection import get_default_config_path
+
+
+# Disable Snowpark pandas hybrid execution warnings
+try:
+    from modin.config import AutoSwitchBackend
+    AutoSwitchBackend.disable()
+except ImportError:
+    pass  # Snowpark pandas not installed, no need to suppress
 
 
 # Mark all tests in this module as integration tests

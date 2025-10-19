@@ -1,60 +1,29 @@
 """Primitive operations to wrap direct Snowflake connector calls"""
 
-from snowlib.primitives.context import SnowflakeContext
-from snowlib.primitives.result import QueryResult
-from snowlib.primitives.job import QueryJob
+from snowlib.context import SnowflakeContext
 
-from snowlib.primitives.execution import (
+from snowlib.primitives.execute import (
     execute_sql,
     execute_sql_async,
-    fetch_one,
-    fetch_all,
-    fetch_df,
     execute_block,
+    query,
+    Executor,
 )
 
-from snowlib.primitives.data import (
-    read_table,
-    write_table,
-)
+from snowlib.primitives.result import QueryResult
 
-from snowlib.primitives.metadata import (
-    get_columns,
-    table_exists,
-    list_tables,
-    get_current_database,
-    get_current_schema,
-    get_current_warehouse,
-    get_current_role,
-)
-
-from snowlib.primitives.streaming import (
-    fetch_batches,
-)
+from snowlib.primitives.async_query import AsyncQuery
 
 __all__ = [
     # Context
     "SnowflakeContext",
-    "QueryResult",
-    "QueryJob",
-    # Execution
+    # Query execution
     "execute_sql",
     "execute_sql_async",
-    "fetch_one",
-    "fetch_all",
-    "fetch_df",
     "execute_block",
-    # Data I/O
-    "read_table",
-    "write_table",
-    # Metadata
-    "get_columns",
-    "table_exists",
-    "list_tables",
-    "get_current_database",
-    "get_current_schema",
-    "get_current_warehouse",
-    "get_current_role",
-    # Streaming
-    "fetch_batches",
+    "query",
+    "Executor",
+    # Query results
+    "QueryResult",
+    "AsyncQuery",
 ]
