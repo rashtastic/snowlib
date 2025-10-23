@@ -39,7 +39,7 @@ from snowlib.models import (
     Show,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __all__ = [
     # Layer 1: Configuration & Connection
     "load_profile", 

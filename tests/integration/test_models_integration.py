@@ -6,6 +6,7 @@ interact correctly with a live Snowflake instance.
 import pytest
 import uuid
 import pandas as pd
+import datetime
 from typing import Iterator
 
 from snowlib.context import SnowflakeContext
@@ -223,6 +224,52 @@ class TestTableIntegration:
             ).to_df()
             assert len(result) == 3
             assert 'status' in result.columns
+            
+        finally:
+            table.drop()
+
+    @pytest.mark.skipif(not HAS_PYARROW, reason="PyArrow required for pandas write operations")
+    def test_table_datetime_roundtrip(self, db, test_schema):
+        """Test that datetime types are properly preserved in write/read cycles"""
+        table_name = f"TEST_DATETIME_ROUNDTRIP_{uuid.uuid4().hex[:8]}"
+        table = db.schema(test_schema).table(table_name)
+        
+        # Create test data with various datetime types
+        base = datetime.datetime(2025, 1, 15, 12, 30, 45)
+        test_df = pd.DataFrame({
+            "ID": [1, 2, 3],
+            "DATE_COL": [
+                datetime.date(2025, 1, 15),
+                datetime.date(2025, 1, 16),
+                datetime.date(2025, 1, 17)
+            ],
+            "TIMESTAMP_COL": [
+                base,
+                base + datetime.timedelta(hours=3),
+                base + datetime.timedelta(hours=6)
+            ]
+        })
+        
+        try:
+            # Write to Snowflake
+            table.write(test_df, if_exists='replace')
+            
+            # Read back
+            result_df = table.read()
+            
+            # Verify row count
+            assert len(result_df) == 3
+            
+            # Verify date column is preserved as dates (not integers)
+            assert result_df["date_col"].dtype == "object"
+            for val in result_df["date_col"]:
+                assert isinstance(val, datetime.date)
+            
+            # Verify timestamp column is preserved as timestamps (not integers)
+            assert pd.api.types.is_datetime64_any_dtype(result_df["timestamp_col"])
+            
+            # Verify actual values match (allowing for minor precision differences)
+            assert result_df["date_col"].tolist() == test_df["DATE_COL"].tolist()
             
         finally:
             table.drop()

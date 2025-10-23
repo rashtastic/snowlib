@@ -38,6 +38,7 @@ class Table(TableLike):
             auto_create_table=True,
             overwrite=False,
             quote_identifiers=False,
+            use_logical_type=True,
         )
 
     def truncate(self) -> None:
