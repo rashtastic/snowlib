@@ -24,7 +24,6 @@ from snowlib.primitives import (
     execute_sql_async,
     execute_block,
     query,
-    Executor,
 )
 
 # Layer 3: Models (OOP interface for Snowflake objects)
@@ -39,7 +38,10 @@ from snowlib.models import (
     Show,
 )
 
-__version__ = "0.3.1"
+# Session: Context-bound convenience layer
+from snowlib.session import Session, create_session
+
+__version__ = "0.4.0"
 __all__ = [
     # Layer 1: Configuration & Connection
     "load_profile", 
@@ -55,7 +57,6 @@ __all__ = [
     "execute_sql_async",
     "execute_block",
     "query",
-    "Executor",
     # Layer 3: Models (OOP interface)
     "Database",
     "Schema",
@@ -65,4 +66,7 @@ __all__ = [
     "DynamicTable",
     "Column",
     "Show",
+    # Session
+    "Session",
+    "create_session",
 ]

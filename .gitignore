@@ -1,11 +1,13 @@
 venv/
-venvs/
 .ipynb_checkpoints
 .vscode/
+.github/
 __pycache__/
 .pytest_cache/
 .mypy_cache/
 .tox/
+temp/
+**/local/
 
 # User configuration directory - ignore actual config files but keep examples
 SNOWLIB_HOME_DIR/*.toml

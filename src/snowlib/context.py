@@ -1,5 +1,6 @@
 """Snowflake connection context management"""
 
+import warnings
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -47,6 +48,7 @@ class SnowflakeContext:
             self._connection = conn
             self._cursor = cur
             self._owns_connector = True
+            self._validate_session_context()
 
         return self._connection
 
@@ -57,6 +59,40 @@ class SnowflakeContext:
             self._cursor = self.connection.cursor()
 
         return self._cursor
+
+    def _validate_session_context(self) -> None:
+        """Validate that declared connection values match actual session values"""
+        if self._connector is None:
+            return
+        
+        cfg = self._connector._cfg
+        
+        # Map config keys to (CURRENT_*() query, friendly name)
+        validations = [
+            ("warehouse", "SELECT CURRENT_WAREHOUSE()", "warehouse"),
+            ("role", "SELECT CURRENT_ROLE()", "role"),
+            ("database", "SELECT CURRENT_DATABASE()", "database"),
+            ("schema", "SELECT CURRENT_SCHEMA()", "schema"),
+        ]
+        
+        for config_key, query, friendly_name in validations:
+            declared = cfg.get(config_key)
+            if declared:
+                result = self._cursor.execute(query).fetchone()
+                actual = result[0] if result and result[0] else None
+                
+                if actual is None:
+                    warnings.warn(
+                        f"Declared {friendly_name} '{declared}' is not active in session. The {friendly_name} may be suspended or inaccessible.",
+                        UserWarning,
+                        stacklevel=4,
+                    )
+                elif declared.upper() != actual.upper():
+                    warnings.warn(
+                        f"Declared {friendly_name} '{declared}' does not match session {friendly_name} '{actual}'.",
+                        UserWarning,
+                        stacklevel=4,
+                    )
 
     def close(self) -> None:
         """Close connection if owned by this context"""

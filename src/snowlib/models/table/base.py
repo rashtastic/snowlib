@@ -1,7 +1,7 @@
 """Base class for table-like Snowflake objects"""
 
 import warnings
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, ClassVar
 import pandas as pd
 
 from snowlib.models.base import SchemaChild, Container
@@ -13,6 +13,38 @@ if TYPE_CHECKING:
 
 class TableLike(SchemaChild, Container):
     """Base class for all queryable table-like objects (tables, views, materialized views, dynamic tables)"""
+    
+    # Subclasses that can be checked for type mismatches
+    _TABLE_LIKE_TYPES: ClassVar[list[type["TableLike"]]] = []
+    
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """Register subclasses for type mismatch detection"""
+        super().__init_subclass__(**kwargs)
+        # Only register concrete classes with SHOW_PLURAL defined
+        if hasattr(cls, 'SHOW_PLURAL') and cls.SHOW_PLURAL:
+            TableLike._TABLE_LIKE_TYPES.append(cls)
+    
+    def exists(self) -> bool:
+        """Check if object exists, warning if it exists as a different table-like type"""
+        from snowlib.models.base.show import Show
+        show = Show(self._context)
+        
+        if show.exists(self.__class__, self.name, container=self.container):
+            return True
+        
+        # Check if it exists as a different table-like type
+        for alt_class in TableLike._TABLE_LIKE_TYPES:
+            if alt_class is self.__class__:
+                continue
+            if show.exists(alt_class, self.name, container=self.container):
+                warnings.warn(
+                    f"'{self.fqn}' does not exist as a {self.__class__.__name__}, but exists as a {alt_class.__name__}. Consider using session.{alt_class.__name__.lower()}.from_name() instead.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                break
+        
+        return False
     
     def read(
         self,

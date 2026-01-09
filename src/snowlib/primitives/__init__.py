@@ -7,7 +7,7 @@ from snowlib.primitives.execute import (
     execute_sql_async,
     execute_block,
     query,
-    Executor,
+    Executor,  # Internal use, not in __all__
 )
 
 from snowlib.primitives.result import QueryResult
@@ -22,7 +22,6 @@ __all__ = [
     "execute_sql_async",
     "execute_block",
     "query",
-    "Executor",
     # Query results
     "QueryResult",
     "AsyncQuery",

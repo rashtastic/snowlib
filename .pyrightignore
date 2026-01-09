@@ -1,0 +1,13 @@
+# Pyright ignore patterns
+# Exclude test files, code samples, and build artifacts
+
+tests/
+test/
+venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+*.egg-info/
+build/
+dist/

@@ -24,14 +24,15 @@ class Executor:
     def run(
         self, 
         sql: str, 
-        bindings: Optional[Sequence[Any]] = None
+        bindings: Optional[Sequence[Any]] = None,
+        arrow: bool = True,
     ) -> QueryResult:
         """Execute SQL and return a QueryResult"""
         if bindings is None:
             cursor = self.context.cursor.execute(sql)
         else:
             cursor = self.context.cursor.execute(sql, bindings)
-        return QueryResult(_cursor=cursor)
+        return QueryResult(_cursor=cursor, _use_arrow=arrow)
 
     def run_async(
         self, 
@@ -71,17 +72,24 @@ class Executor:
 
 
 def execute_sql(
-    sql: str, context: Union[str, SnowflakeContext], **overrides: Any
+    sql: str,
+    context: Union[str, SnowflakeContext],
+    bindings: Optional[Sequence[Any]] = None,
+    arrow: bool = True,
+    **overrides: Any,
 ) -> QueryResult:
     """Execute SQL and return a QueryResult"""
-    return Executor(context, **overrides).run(sql)
+    return Executor(context, **overrides).run(sql, bindings=bindings, arrow=arrow)
 
 
 def execute_sql_async(
-    sql: str, context: Union[str, SnowflakeContext], **overrides: Any
+    sql: str,
+    context: Union[str, SnowflakeContext],
+    bindings: Optional[Sequence[Any]] = None,
+    **overrides: Any,
 ) -> AsyncQuery:
     """Execute SQL asynchronously and return an AsyncQuery"""
-    return Executor(context, **overrides).run_async(sql)
+    return Executor(context, **overrides).run_async(sql, bindings=bindings)
 
 
 def execute_block(
@@ -92,7 +100,11 @@ def execute_block(
 
 
 def query(
-    sql: str, context: Union[str, SnowflakeContext], **overrides: Any
+    sql: str,
+    context: Union[str, SnowflakeContext],
+    bindings: Optional[Sequence[Any]] = None,
+    arrow: bool = True,
+    **overrides: Any,
 ) -> pd.DataFrame:
     """Execute SQL and return results as a DataFrame"""
-    return Executor(context, **overrides).run(sql).to_df()
+    return Executor(context, **overrides).run(sql, bindings=bindings, arrow=arrow).to_df()

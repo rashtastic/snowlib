@@ -4,11 +4,12 @@ These tests mock the underlying primitives to test the logic of the
 Snowflake object model without requiring a live connection.
 """
 import pytest
+import warnings
 from unittest.mock import MagicMock, patch
 
 from snowlib.context import SnowflakeContext
 from snowlib.models import Database, Schema
-from snowlib.models.table import Table
+from snowlib.models.table import Table, View
 
 
 @pytest.fixture
@@ -145,3 +146,92 @@ class TestTableModel:
         mock_execute.assert_called_once_with(
             "DROP TABLE DB.SCHEMA.TABLE", context=mock_ctx
         )
+
+
+class TestTableTypeMismatchWarning:
+    """Tests for type mismatch warnings when Table is actually a View, etc."""
+
+    @patch("snowlib.models.base.show.Show")
+    def test_no_warning_when_table_exists_as_table(self, mock_show_class, mock_ctx):
+        """No warning when Table exists as a Table"""
+        mock_show_instance = MagicMock()
+        mock_show_instance.exists.return_value = True
+        mock_show_class.return_value = mock_show_instance
+        
+        table = Table("DB", "SCHEMA", "MY_TABLE", context=mock_ctx)
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = table.exists()
+            
+            assert result is True
+            assert len(w) == 0
+
+    @patch("snowlib.models.base.show.Show")
+    def test_warning_when_table_is_actually_view(self, mock_show_class, mock_ctx):
+        """Warning when Table doesn't exist but View does"""
+        mock_show_instance = MagicMock()
+        
+        def exists_side_effect(cls, name, container=None):
+            # Table doesn't exist, but View does
+            if cls == Table:
+                return False
+            if cls == View:
+                return True
+            return False
+        
+        mock_show_instance.exists.side_effect = exists_side_effect
+        mock_show_class.return_value = mock_show_instance
+        
+        table = Table("DB", "SCHEMA", "MY_VIEW", context=mock_ctx)
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = table.exists()
+            
+            assert result is False
+            assert len(w) == 1
+            assert "View" in str(w[0].message)
+            assert "MY_VIEW" in str(w[0].message)
+
+    @patch("snowlib.models.base.show.Show")
+    def test_warning_when_view_is_actually_table(self, mock_show_class, mock_ctx):
+        """Warning when View doesn't exist but Table does"""
+        mock_show_instance = MagicMock()
+        
+        def exists_side_effect(cls, name, container=None):
+            # View doesn't exist, but Table does
+            if cls == View:
+                return False
+            if cls == Table:
+                return True
+            return False
+        
+        mock_show_instance.exists.side_effect = exists_side_effect
+        mock_show_class.return_value = mock_show_instance
+        
+        view = View("DB", "SCHEMA", "MY_TABLE", context=mock_ctx)
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = view.exists()
+            
+            assert result is False
+            assert len(w) == 1
+            assert "Table" in str(w[0].message)
+
+    @patch("snowlib.models.base.show.Show")
+    def test_no_warning_when_object_doesnt_exist_anywhere(self, mock_show_class, mock_ctx):
+        """No warning when object doesn't exist as any type"""
+        mock_show_instance = MagicMock()
+        mock_show_instance.exists.return_value = False
+        mock_show_class.return_value = mock_show_instance
+        
+        table = Table("DB", "SCHEMA", "NONEXISTENT", context=mock_ctx)
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = table.exists()
+            
+            assert result is False
+            assert len(w) == 0

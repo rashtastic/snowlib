@@ -1,19 +1,27 @@
 """A unified, simplified interface for Snowflake query results"""
 from typing import Any, Generator, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import logging
+import warnings
+
 import pandas as pd
 
 try:
-    import pyarrow  # noqa: F401
+    import pyarrow as pa
     HAS_PYARROW = True
 except ImportError:
+    pa = None  # type: ignore
     HAS_PYARROW = False
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class QueryResult:
     """A unified, simplified interface for Snowflake query results"""
     _cursor: Any
+    _use_arrow: bool = field(default=True, repr=False)
     
     @property
     def query_id(self) -> str:
@@ -44,36 +52,59 @@ class QueryResult:
         result = self._cursor.fetchall()
         return result if result else []
 
+    def _fetch_native_df(self, lowercase_columns: bool = True) -> pd.DataFrame:
+        """Fetch results using native Python types (slower but handles edge cases)"""
+        if self._cursor.description:
+            columns = [desc[0] for desc in self._cursor.description]
+            rows = self._cursor.fetchall()
+            df = pd.DataFrame(rows, columns=columns)
+        else:
+            df = pd.DataFrame()
+        
+        if lowercase_columns and (not df.empty or len(df.columns) > 0):
+            df.columns = df.columns.str.lower()
+        
+        return df
+
     def fetch_batches(self, lowercase_columns: bool = True) -> Generator[pd.DataFrame, None, None]:
         """Fetch results in batches of DataFrames with optional column casing"""
-        if HAS_PYARROW:
-            for batch_df in self._cursor.fetch_pandas_batches():
-                if lowercase_columns:
-                    batch_df.columns = batch_df.columns.str.lower()
-                yield batch_df
-        else:
-            # Fallback: fetch all at once (not ideal but works)
-            df = self.to_df(lowercase_columns=lowercase_columns)
-            if not df.empty:
-                yield df
+        if HAS_PYARROW and self._use_arrow:
+            try:
+                for batch_df in self._cursor.fetch_pandas_batches():
+                    if lowercase_columns:
+                        batch_df.columns = batch_df.columns.str.lower()
+                    yield batch_df
+                return
+            except pa.ArrowInvalid as e:
+                warnings.warn(
+                    f"Arrow batch fetch failed due to schema mismatch (often caused by extreme dates like 9999-01-01). Falling back to native fetch. Original error: {e}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                # Fall through to native fetch below
+        
+        # Fallback: fetch all at once using native types
+        df = self._fetch_native_df(lowercase_columns=lowercase_columns)
+        if not df.empty:
+            yield df
 
     def to_df(self, lowercase_columns: bool = True) -> pd.DataFrame:
         """Fetch all results as a single DataFrame with optional column casing"""
-        if HAS_PYARROW:
-            df = self._cursor.fetch_pandas_all()
-        else:
-            # Fallback for Python 3.14 or when pandas extras not installed
-            if self._cursor.description:
-                columns = [desc[0] for desc in self._cursor.description]
-                rows = self._cursor.fetchall()
-                df = pd.DataFrame(rows, columns=columns)
-            else:
-                df = pd.DataFrame()
-
-        if lowercase_columns and (not df.empty or len(df.columns) > 0):
-            df.columns = df.columns.str.lower()
-            
-        return df
+        if HAS_PYARROW and self._use_arrow:
+            try:
+                df = self._cursor.fetch_pandas_all()
+                if lowercase_columns and (not df.empty or len(df.columns) > 0):
+                    df.columns = df.columns.str.lower()
+                return df
+            except pa.ArrowInvalid as e:
+                warnings.warn(
+                    f"Arrow fetch failed due to schema mismatch (often caused by extreme dates like 9999-01-01). Falling back to native fetch. Original error: {e}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                # Fall through to native fetch below
+        
+        return self._fetch_native_df(lowercase_columns=lowercase_columns)
     
     def __repr__(self) -> str:
         """String representation"""

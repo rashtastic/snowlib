@@ -56,6 +56,8 @@ snowpark = [
     "snowflake-connector-python[pandas]<4.0.0,>=3.17.0; python_version < '3.14'",
     "snowflake-connector-python<4.0.0,>=3.17.0; python_version >= '3.14'",
     "snowflake-snowpark-python[modin]>=1.9.0; python_version < '3.14'",  # Snowpark requires python_version<3.14
+    "pyarrow<22.0.0; python_version == '3.9'",  # PyArrow 22.0.0+ requires Python >=3.10
+    "pyarrow>=22.0.0; python_version >= '3.10'",  # PyArrow 22.0.0+ requires Python >=3.10
 ]
 excel = [
     "xlrd",
@@ -73,8 +75,12 @@ dev = [
     "pandas-stubs",
     "ipykernel",
     "tox",
+    # Security
+    "bandit",
+    "detect-secrets",
     # Distribution
     "pip-licenses",
+    "nbformat",
     # All optional dependencies
     "snowlib[sqlalchemy,snowpark,excel]",
 ]

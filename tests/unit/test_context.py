@@ -76,6 +76,7 @@ class TestSnowflakeContextLazyLoading:
         mock_cur = Mock()
         mock_connector_instance = Mock()
         mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = {}  # Empty config for validation
         mock_connector_class.return_value = mock_connector_instance
         
         # Create context with profile
@@ -104,6 +105,7 @@ class TestSnowflakeContextLazyLoading:
         mock_cur = Mock()
         mock_connector_instance = Mock()
         mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = {}  # Empty config for validation
         mock_connector_class.return_value = mock_connector_instance
         
         ctx = SnowflakeContext(
@@ -129,6 +131,7 @@ class TestSnowflakeContextLazyLoading:
         mock_cur = Mock()
         mock_connector_instance = Mock()
         mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = {}  # Empty config for validation
         mock_connector_class.return_value = mock_connector_instance
         
         ctx = SnowflakeContext(profile="test")
@@ -188,6 +191,7 @@ class TestSnowflakeContextLazyLoading:
         mock_cur = Mock()
         mock_connector_instance = Mock()
         mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = {}  # Empty config for validation
         mock_connector_class.return_value = mock_connector_instance
         
         ctx = SnowflakeContext(profile="test")
@@ -213,6 +217,7 @@ class TestSnowflakeContextClose:
         mock_cur = Mock()
         mock_connector_instance = Mock()
         mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = {}  # Empty config for validation
         mock_connector_class.return_value = mock_connector_instance
         
         ctx = SnowflakeContext(profile="test")
@@ -246,6 +251,7 @@ class TestSnowflakeContextClose:
         mock_cur = Mock()
         mock_connector_instance = Mock()
         mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = {}  # Empty config for validation
         mock_connector_class.return_value = mock_connector_instance
         
         ctx = SnowflakeContext(profile="test")
@@ -270,6 +276,7 @@ class TestSnowflakeContextManager:
         mock_cur = Mock()
         mock_connector_instance = Mock()
         mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = {}  # Empty config for validation
         mock_connector_class.return_value = mock_connector_instance
         
         with SnowflakeContext(profile="test") as ctx:
@@ -287,6 +294,7 @@ class TestSnowflakeContextManager:
         mock_cur = Mock()
         mock_connector_instance = Mock()
         mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = {}  # Empty config for validation
         mock_connector_class.return_value = mock_connector_instance
         
         with pytest.raises(RuntimeError):
@@ -451,6 +459,7 @@ class TestSnowflakeContextRepr:
         mock_cur = Mock()
         mock_connector_instance = Mock()
         mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = {}  # Empty config for validation
         mock_connector_class.return_value = mock_connector_instance
         
         ctx = SnowflakeContext(profile="test")
@@ -460,3 +469,175 @@ class TestSnowflakeContextRepr:
         
         assert "SnowflakeContext" in repr_str
         assert "connection=<active>" in repr_str
+
+
+class TestSessionContextValidation:
+    """Tests for session context validation warnings"""
+
+    def _setup_mock_connector(self, mock_connector_class, cfg, cursor_results):
+        """Helper to set up mocked connector with config and cursor results"""
+        mock_conn = Mock()
+        mock_cur = Mock()
+        mock_connector_instance = Mock()
+        mock_connector_instance.connect.return_value = (mock_conn, mock_cur)
+        mock_connector_instance._cfg = cfg
+        mock_connector_class.return_value = mock_connector_instance
+        
+        # Setup cursor to return different results for different queries
+        def execute_side_effect(query):
+            result_mock = Mock()
+            for key, value in cursor_results.items():
+                if key in query:
+                    result_mock.fetchone.return_value = (value,)
+                    return result_mock
+            result_mock.fetchone.return_value = (None,)
+            return result_mock
+        
+        mock_cur.execute.side_effect = execute_side_effect
+        return mock_conn, mock_cur
+
+    @patch('snowlib.connection.SnowflakeConnector')
+    def test_no_warning_when_values_match(self, mock_connector_class):
+        """No warning when declared values match session values"""
+        cfg = {"warehouse": "MY_WH", "role": "MY_ROLE"}
+        cursor_results = {
+            "CURRENT_WAREHOUSE": "MY_WH",
+            "CURRENT_ROLE": "MY_ROLE",
+        }
+        self._setup_mock_connector(mock_connector_class, cfg, cursor_results)
+        
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ctx = SnowflakeContext(profile="test")
+            _ = ctx.connection
+            
+            assert len(w) == 0
+
+    @patch('snowlib.connection.SnowflakeConnector')
+    def test_no_warning_when_values_match_case_insensitive(self, mock_connector_class):
+        """No warning when values match case-insensitively"""
+        cfg = {"warehouse": "my_wh", "role": "my_role"}
+        cursor_results = {
+            "CURRENT_WAREHOUSE": "MY_WH",
+            "CURRENT_ROLE": "MY_ROLE",
+        }
+        self._setup_mock_connector(mock_connector_class, cfg, cursor_results)
+        
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ctx = SnowflakeContext(profile="test")
+            _ = ctx.connection
+            
+            assert len(w) == 0
+
+    @patch('snowlib.connection.SnowflakeConnector')
+    def test_warning_when_warehouse_not_active(self, mock_connector_class):
+        """Warning when declared warehouse is not active (suspended)"""
+        cfg = {"warehouse": "SUSPENDED_WH"}
+        cursor_results = {
+            "CURRENT_WAREHOUSE": None,
+        }
+        self._setup_mock_connector(mock_connector_class, cfg, cursor_results)
+        
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ctx = SnowflakeContext(profile="test")
+            _ = ctx.connection
+            
+            assert len(w) == 1
+            assert "SUSPENDED_WH" in str(w[0].message)
+            assert "not active" in str(w[0].message)
+
+    @patch('snowlib.connection.SnowflakeConnector')
+    def test_warning_when_role_mismatched(self, mock_connector_class):
+        """Warning when declared role does not match session role"""
+        cfg = {"role": "REQUESTED_ROLE"}
+        cursor_results = {
+            "CURRENT_ROLE": "DIFFERENT_ROLE",
+        }
+        self._setup_mock_connector(mock_connector_class, cfg, cursor_results)
+        
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ctx = SnowflakeContext(profile="test")
+            _ = ctx.connection
+            
+            assert len(w) == 1
+            assert "REQUESTED_ROLE" in str(w[0].message)
+            assert "DIFFERENT_ROLE" in str(w[0].message)
+            assert "does not match" in str(w[0].message)
+
+    @patch('snowlib.connection.SnowflakeConnector')
+    def test_warning_when_database_mismatched(self, mock_connector_class):
+        """Warning when declared database does not match session database"""
+        cfg = {"database": "MY_DB"}
+        cursor_results = {
+            "CURRENT_DATABASE": "OTHER_DB",
+        }
+        self._setup_mock_connector(mock_connector_class, cfg, cursor_results)
+        
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ctx = SnowflakeContext(profile="test")
+            _ = ctx.connection
+            
+            assert len(w) == 1
+            assert "MY_DB" in str(w[0].message)
+            assert "OTHER_DB" in str(w[0].message)
+
+    @patch('snowlib.connection.SnowflakeConnector')
+    def test_no_warning_for_undeclared_values(self, mock_connector_class):
+        """No warning when values are not declared in config"""
+        cfg = {}  # No warehouse, role, database, or schema declared
+        cursor_results = {
+            "CURRENT_WAREHOUSE": None,
+            "CURRENT_ROLE": "SOME_ROLE",
+        }
+        self._setup_mock_connector(mock_connector_class, cfg, cursor_results)
+        
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ctx = SnowflakeContext(profile="test")
+            _ = ctx.connection
+            
+            assert len(w) == 0
+
+    @patch('snowlib.connection.SnowflakeConnector')
+    def test_multiple_warnings_for_multiple_mismatches(self, mock_connector_class):
+        """Multiple warnings when multiple values are mismatched"""
+        cfg = {"warehouse": "WH1", "role": "ROLE1", "database": "DB1"}
+        cursor_results = {
+            "CURRENT_WAREHOUSE": None,
+            "CURRENT_ROLE": "ROLE2",
+            "CURRENT_DATABASE": "DB2",
+        }
+        self._setup_mock_connector(mock_connector_class, cfg, cursor_results)
+        
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ctx = SnowflakeContext(profile="test")
+            _ = ctx.connection
+            
+            assert len(w) == 3
+
+    def test_no_validation_when_connection_passed_directly(self):
+        """No validation when connection is passed directly (no connector)"""
+        mock_conn = Mock()
+        mock_cur = Mock()
+        
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ctx = SnowflakeContext(connection=mock_conn, cursor=mock_cur)
+            # Access connection to ensure no errors
+            _ = ctx.connection
+            
+            # No warnings because we can't validate without a connector
+            assert len(w) == 0
