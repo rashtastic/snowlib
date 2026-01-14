@@ -98,6 +98,32 @@ class TestSchemaModel:
         assert tables[0].schema.name == "PUBLIC"
         assert tables[0].database.name == "TEST_DB"
         mock_show_children.assert_called_once_with(Table)
+    
+    def test_schema_from_name_fully_qualified(self, mock_ctx):
+        """Schema.from_name() with DB.SCHEMA format"""
+        schema = Schema.from_name("TEST_DB.PUBLIC", mock_ctx)
+        assert schema.name == "PUBLIC"
+        assert schema.database.name == "TEST_DB"
+        assert schema.fqn == "TEST_DB.PUBLIC"
+    
+    def test_schema_from_name_with_context_database(self, mock_ctx):
+        """Schema.from_name() with SCHEMA format using context database"""
+        mock_ctx.current_database = "CONTEXT_DB"
+        schema = Schema.from_name("PUBLIC", mock_ctx)
+        assert schema.name == "PUBLIC"
+        assert schema.database.name == "CONTEXT_DB"
+        assert schema.fqn == "CONTEXT_DB.PUBLIC"
+    
+    def test_schema_from_name_requires_database(self, mock_ctx):
+        """Schema.from_name() raises error when database cannot be resolved"""
+        mock_ctx.current_database = None
+        with pytest.raises(ValueError, match="no database in context"):
+            Schema.from_name("PUBLIC", mock_ctx)
+    
+    def test_schema_from_name_rejects_invalid_format(self, mock_ctx):
+        """Schema.from_name() rejects invalid formats"""
+        with pytest.raises(ValueError, match="Invalid schema name"):
+            Schema.from_name("DB.SCHEMA.EXTRA", mock_ctx)
 
 
 class TestTableModel:

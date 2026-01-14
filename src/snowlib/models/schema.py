@@ -23,6 +23,58 @@ class Schema(Container):
         super().__init__(context)
         self._fqn = FQN.from_parts(database, name)
     
+    @classmethod
+    def from_name(
+        cls,
+        name: str,
+        context: SnowflakeContext,
+        default_database: str | None = None,
+        default_schema: str | None = None,
+        **kwargs: object
+    ) -> 'Schema':
+        """Parse qualified name and resolve missing parts from context.
+        
+        Args:
+            name: Schema name in format 'DATABASE.SCHEMA' or 'SCHEMA'
+            context: SnowflakeContext to use for resolution
+            default_database: Ignored (Schema doesn't use default_database)
+            default_schema: Ignored (Schema doesn't use default_schema)
+            **kwargs: Additional arguments (ignored)
+        
+        Returns:
+            Schema instance
+        
+        Raises:
+            ValueError: If name cannot be resolved
+        
+        Examples:
+            >>> Schema.from_name("MY_DB.MY_SCHEMA", ctx)
+            >>> Schema.from_name("MY_SCHEMA", ctx)  # Uses current database
+        """
+        parts = name.split(".")
+        
+        if len(parts) == 2:
+            # Fully qualified: DATABASE.SCHEMA
+            return cls(parts[0], parts[1], context)
+        
+        elif len(parts) == 1:
+            # Need database from context: SCHEMA
+            db = context.current_database
+            if not db:
+                msg = (
+                    f"Cannot resolve '{name}': no database in context. "
+                    "Use DATABASE.SCHEMA format or USE DATABASE first."
+                )
+                raise ValueError(msg)
+            return cls(db, parts[0], context)
+        
+        else:
+            msg = (
+                f"Invalid schema name '{name}'. "
+                "Expected format: 'DATABASE.SCHEMA' or 'SCHEMA'."
+            )
+            raise ValueError(msg)
+    
     @property
     def database(self) -> 'Database':
         """Get parent database object"""

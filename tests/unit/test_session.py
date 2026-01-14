@@ -222,6 +222,19 @@ class TestSessionModelFactories:
         
         mock_schema_class.assert_called_once_with("MY_DB", "MY_SCHEMA", mock_ctx)
     
+    @patch("snowlib.session.Schema")
+    def test_schema_factory_from_name(self, mock_schema_class):
+        """Session.schema.from_name() creates Schema with context"""
+        mock_ctx = MagicMock(spec=SnowflakeContext)
+        session = Session(context=mock_ctx)
+        
+        session.schema.from_name("MY_DB.MY_SCHEMA")
+        
+        mock_schema_class.from_name.assert_called_once_with(
+            "MY_DB.MY_SCHEMA", mock_ctx, 
+            default_database=None, default_schema=None
+        )
+    
     @patch("snowlib.session.Table")
     def test_table_factory_call(self, mock_table_class):
         """Session.table() creates Table with context"""
