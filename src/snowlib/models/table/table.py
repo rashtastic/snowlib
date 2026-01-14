@@ -270,6 +270,8 @@ class Table(TableLike):
             ddl = schema_to_ddl(target_schema)
             execute_sql(f"CREATE TABLE {self.fqn} ({ddl})", context=self._context)
             logger.info(f"Created table {self.fqn}")
+            if json_columns:
+                logger.info(f"Created {len(json_columns)} VARIANT column(s): {json_columns}")
 
         # Create temp stage
         random_suffix = secrets.token_hex(4).upper()
@@ -329,7 +331,10 @@ class Table(TableLike):
             
             if len(copy_df) > 0:
                 rows_loaded = copy_df['rows_loaded'].sum() if 'rows_loaded' in copy_df.columns else len(df)
-                logger.info(f"Loaded {rows_loaded} row(s) via COPY INTO")
+                if json_columns:
+                    logger.info(f"Loaded {rows_loaded} row(s) via COPY INTO with {len(json_columns)} VARIANT column(s): {json_columns}")
+                else:
+                    logger.info(f"Loaded {rows_loaded} row(s) via COPY INTO")
             
         finally:
             # Clean up temp stage
