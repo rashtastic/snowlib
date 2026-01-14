@@ -68,7 +68,7 @@ class QueryResult:
 
     def fetch_batches(self, lowercase_columns: bool = True) -> Generator[pd.DataFrame, None, None]:
         """Fetch results in batches of DataFrames with optional column casing"""
-        if HAS_PYARROW and self._use_arrow:
+        if HAS_PYARROW and self._use_arrow and pa is not None:
             try:
                 for batch_df in self._cursor.fetch_pandas_batches():
                     if lowercase_columns:
@@ -100,7 +100,7 @@ class QueryResult:
 
     def to_df(self, lowercase_columns: bool = True) -> pd.DataFrame:
         """Fetch all results as a single DataFrame with optional column casing"""
-        if HAS_PYARROW and self._use_arrow:
+        if HAS_PYARROW and self._use_arrow and pa is not None:
             try:
                 df = self._cursor.fetch_pandas_all()
                 if lowercase_columns and (not df.empty or len(df.columns) > 0):

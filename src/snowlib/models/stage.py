@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import ClassVar, Optional, Any
+from typing import ClassVar, Optional, Any, cast
 
 from snowlib.context import SnowflakeContext
 from snowlib.models.base import SchemaChild
@@ -15,6 +15,7 @@ try:
     from tqdm import tqdm
     HAS_TQDM = True
 except ImportError:
+    tqdm = None  # type: ignore
     HAS_TQDM = False
 
 
@@ -43,7 +44,7 @@ class StageObject:
         result = execute_sql(f"REMOVE {self.path}", self._stage._context)
         df = result.to_df()
         if len(df) > 0:
-            return df.iloc[0].to_dict()
+            return cast(dict[str, Any], df.iloc[0].to_dict())
         return {"status": "no result"}
     
     def __repr__(self) -> str:
@@ -118,7 +119,7 @@ class Stage(SchemaChild):
         """Remove all files from the stage"""
         result = execute_sql(f"REMOVE {self.stage_path}", self._context)
         df = result.to_df()
-        return df.to_dict('records') if len(df) > 0 else []
+        return cast(list[dict[str, Any]], df.to_dict('records')) if len(df) > 0 else []
     
     def load(
         self,
@@ -130,7 +131,7 @@ class Stage(SchemaChild):
         """Upload local files to the stage with progress bar"""
         results = []
         
-        iterator = tqdm(files, desc="Uploading") if (show_progress and HAS_TQDM) else files
+        iterator = tqdm(files, desc="Uploading") if (show_progress and HAS_TQDM and tqdm is not None) else files
         
         for file_path in iterator:
             if not file_path.exists():
@@ -149,7 +150,7 @@ class Stage(SchemaChild):
                 result = execute_sql(sql, self._context)
                 df = result.to_df()
                 if len(df) > 0:
-                    row_dict = df.iloc[0].to_dict()
+                    row_dict = cast(dict[str, Any], df.iloc[0].to_dict())
                     row_dict["query_id"] = result.query_id
                     results.append(row_dict)
                 else:
