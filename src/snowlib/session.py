@@ -1,6 +1,6 @@
 """Context-bound session for snowlib operations"""
 
-from typing import Any, Optional, Sequence, Type, TypeVar, Generic
+from typing import Any, Optional, Sequence, Type, TypeVar, Generic, Protocol
 
 import pandas as pd
 
@@ -8,7 +8,22 @@ from snowlib.context import SnowflakeContext
 from snowlib.primitives import Executor, QueryResult, AsyncQuery
 from snowlib.models import Database, Schema, Table, View, MaterializedView, DynamicTable
 
-T = TypeVar('T')
+
+class HasFromName(Protocol):
+    """Protocol for model classes that have from_name classmethod"""
+    @classmethod
+    def from_name(
+        cls,
+        name: str,
+        context: SnowflakeContext,
+        default_database: Optional[str] = None,
+        default_schema: Optional[str] = None,
+        **kwargs: Any
+    ) -> Any:
+        ...
+
+
+T = TypeVar('T', bound=HasFromName)
 
 
 class BoundModel(Generic[T]):
@@ -18,9 +33,9 @@ class BoundModel(Generic[T]):
         self._model_class = model_class
         self._context = context
     
-    def __call__(self, *args: Any) -> T:
+    def __call__(self, *args: Any) -> Any:
         """Instantiate the model with bound context"""
-        return self._model_class(*args, self._context)
+        return self._model_class(*args, self._context)  # type: ignore[call-arg]
     
     def from_name(
         self,

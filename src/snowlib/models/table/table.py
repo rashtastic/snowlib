@@ -1,13 +1,28 @@
 """Table class with write operations"""
 
+from __future__ import annotations
+
 import logging
 import secrets
-from typing import Any, ClassVar
+import tempfile
+from enum import Enum
+from pathlib import Path
+from typing import Any, ClassVar, TYPE_CHECKING
 import pandas as pd
 
 from snowlib.models.table.base import TableLike
 
+if TYPE_CHECKING:
+    from snowlib.utils.schema import ColumnSchema
+
 logger = logging.getLogger(__name__)
+
+
+class WriteMethod(Enum):
+    """Method for writing DataFrame to Snowflake table"""
+    AUTO = "auto"          # Let snowlib decide based on data
+    SIMPLE = "simple"      # Use write_pandas (current behavior)
+    EXPLICIT = "explicit"  # Use stage + COPY INTO with column projection
 
 
 class Table(TableLike):
@@ -30,64 +45,72 @@ class Table(TableLike):
                 variant_cols.add(col_name.upper())
         return variant_cols
 
-    def write(self, df: pd.DataFrame, if_exists: str = "fail") -> None:
-        """Write DataFrame to table with optional creation, replacement, or appending
+    def write(
+        self,
+        df: pd.DataFrame,
+        if_exists: str = "fail",
+        method: WriteMethod | str = WriteMethod.AUTO,
+    ) -> None:
+        """Write DataFrame to table with optional creation, replacement, or appending.
 
-        Columns containing dicts or lists are automatically detected, serialized
-        to JSON strings, and converted to VARIANT after loading.
+        Args:
+            df: DataFrame to write
+            if_exists: How to handle existing table:
+                - 'fail': Raise error if table exists
+                - 'replace': Drop and recreate table
+                - 'append': Insert rows into existing table
+            method: Write method to use:
+                - WriteMethod.AUTO: Use EXPLICIT if JSON columns detected, else SIMPLE
+                - WriteMethod.SIMPLE: Use write_pandas (fast, but VARIANT requires post-conversion)
+                - WriteMethod.EXPLICIT: Use stage + COPY INTO (native VARIANT support)
         
-        For append operations:
-        - If target column is VARIANT: data is written to temp table, converted, then inserted
-        - If target column is NOT VARIANT: JSON conversion is skipped for that column
+        Columns containing dicts or lists are automatically detected as VARIANT.
         
         Note: This temporarily sets the session database and schema to match the table,
         then restores the original session state after writing.
         """
-        from snowflake.connector.pandas_tools import write_pandas
-        from snowlib.utils.json_columns import prepare_json_columns
         from snowlib.primitives import execute_sql
-        from snowlib.utils.identifiers import is_valid_identifier
+        from snowlib.utils.schema import detect_json_columns, resolve_target_schema
 
         if if_exists not in ("fail", "replace", "append"):
             raise ValueError(
                 f"if_exists must be 'fail', 'replace', or 'append', got: {if_exists}"
             )
 
-        df = df.copy()
-        df.columns = [col.upper() for col in df.columns]
+        # Normalize method to enum
+        if isinstance(method, str):
+            method = WriteMethod(method.lower())
 
-        # Detect JSON-eligible columns in the DataFrame
-        df, json_columns = prepare_json_columns(df)
+        # Prepare DataFrame
+        df = df.copy()
+        df.columns = [str(col).upper() for col in df.columns]
+
+        # Detect JSON-eligible columns
+        json_columns = detect_json_columns(df)
         
-        # Check if table exists and handle append logic
+        # Resolve method if AUTO
+        if method == WriteMethod.AUTO:
+            if json_columns:
+                method = WriteMethod.EXPLICIT
+                logger.info(f"Auto-selected EXPLICIT method due to JSON columns: {json_columns}")
+            else:
+                method = WriteMethod.SIMPLE
+                logger.debug("Auto-selected SIMPLE method (no JSON columns)")
+
+        # Check if table exists and handle replace
         table_exists = self.exists()
+        
+        if if_exists == "fail" and table_exists:
+            raise ValueError(f"Table {self.fqn} already exists and if_exists='fail'")
         
         if if_exists == "replace" and table_exists:
             self.drop()
             table_exists = False
-        
-        # For append: filter JSON columns based on existing VARIANT columns
-        cols_to_convert: list[str] = []
-        cols_via_temp: list[str] = []  # Existing VARIANT cols need temp table route
-        
-        if json_columns:
-            if not table_exists:
-                # Table will be created - all JSON cols become VARIANT
-                cols_to_convert = json_columns
-            else:
-                # Table exists - check existing column types
-                existing_variant_cols = self._get_variant_columns()
-                
-                for col in json_columns:
-                    if col in existing_variant_cols:
-                        # Target is VARIANT - need temp table route
-                        cols_via_temp.append(col)
-                    # else: target is not VARIANT, skip conversion (let write_pandas handle it)
-            
-            if cols_to_convert or cols_via_temp:
-                logger.info(f"Detected JSON columns: {json_columns}")
 
-        # Save current session context
+        # Resolve target schema
+        target_schema = resolve_target_schema(self, df)
+
+        # Save and switch session context
         original_db = self._context.current_database
         original_schema = self._context.current_schema
         
@@ -103,30 +126,10 @@ class Table(TableLike):
             )
 
         try:
-            conn = self._context.connection
-
-            if cols_via_temp:
-                # Append to existing table with VARIANT columns - use temp table route
-                self._write_via_temp_table(df, cols_via_temp, conn)
+            if method == WriteMethod.EXPLICIT:
+                self._write_explicit(df, target_schema, table_exists, json_columns)
             else:
-                # Normal write path
-                write_pandas(
-                    conn=conn,
-                    df=df,
-                    table_name=self._name,
-                    schema=self._schema_name,
-                    database=self._database_name,
-                    auto_create_table=True,
-                    overwrite=False,
-                    quote_identifiers=False,
-                    use_logical_type=True,
-                )
-
-                # Convert JSON string columns to VARIANT (only for new tables)
-                if cols_to_convert:
-                    self._convert_columns_to_variant(cols_to_convert)
-                    print(f"Loaded {len(cols_to_convert)} column(s) as VARIANT: {', '.join(cols_to_convert)}")
-        
+                self._write_simple(df, target_schema, table_exists, json_columns)
         finally:
             if needs_restore and original_db and original_schema:
                 execute_sql(
@@ -136,21 +139,73 @@ class Table(TableLike):
             elif needs_restore and original_db:
                 execute_sql(f"USE DATABASE {original_db}", context=self._context)
 
-    def _write_via_temp_table(
+    def _write_simple(
+        self,
+        df: pd.DataFrame,
+        target_schema: list['ColumnSchema'],
+        table_exists: bool,
+        json_columns: list[str],
+    ) -> None:
+        """Write using write_pandas with optional VARIANT post-conversion.
+        
+        This is the legacy/simple path that uses snowflake-connector's write_pandas.
+        For new tables with JSON columns, it loads as STRING then converts to VARIANT.
+        For appending to existing VARIANT columns, it uses a temp table approach.
+        """
+        from snowflake.connector.pandas_tools import write_pandas
+        from snowlib.utils.json_columns import prepare_json_columns
+
+        # Serialize JSON columns to strings for write_pandas
+        df, _ = prepare_json_columns(df)
+        
+        # Determine which columns need VARIANT conversion
+        cols_to_convert: list[str] = []
+        cols_via_temp: list[str] = []
+        
+        if json_columns:
+            if not table_exists:
+                cols_to_convert = json_columns
+            else:
+                existing_variant_cols = self._get_variant_columns()
+                for col in json_columns:
+                    if col in existing_variant_cols:
+                        cols_via_temp.append(col)
+        
+        conn = self._context.connection
+
+        if cols_via_temp:
+            # Append with VARIANT columns - use temp table route
+            self._write_simple_via_temp(df, cols_via_temp, conn)
+        else:
+            write_pandas(
+                conn=conn,
+                df=df,
+                table_name=self._name,
+                schema=self._schema_name,
+                database=self._database_name,
+                auto_create_table=True,
+                overwrite=False,
+                quote_identifiers=False,
+                use_logical_type=True,
+            )
+
+            if cols_to_convert:
+                self._convert_columns_to_variant(cols_to_convert)
+                logger.info(f"Converted {len(cols_to_convert)} column(s) to VARIANT: {cols_to_convert}")
+
+    def _write_simple_via_temp(
         self,
         df: pd.DataFrame,
         variant_columns: list[str],
         conn: 'Any'
     ) -> None:
-        """Write data via temp table for appending to tables with VARIANT columns"""
+        """Write data via temp table for appending to tables with VARIANT columns (simple method)"""
         from snowflake.connector.pandas_tools import write_pandas
         from snowlib.primitives import execute_sql
 
-        # Create a random temp table name
         random_suffix = secrets.token_hex(4).upper()
         temp_table_name = f"SNOWLIB_TMP_{random_suffix}"
         
-        # Create temp Table object for the temp table (same schema as target)
         temp_table = Table(
             self._database_name,
             self._schema_name,
@@ -159,7 +214,6 @@ class Table(TableLike):
         )
         
         try:
-            # Write to temp table (this will convert JSON cols to VARIANT)
             write_pandas(
                 conn=conn,
                 df=df,
@@ -172,23 +226,122 @@ class Table(TableLike):
                 use_logical_type=True,
             )
             
-            # Convert the temp table's JSON columns to VARIANT
             temp_table._convert_columns_to_variant(variant_columns)
             
-            # Insert from temp table into target table
             execute_sql(
                 f"INSERT INTO {self.fqn} SELECT * FROM {temp_table.fqn}",
                 context=self._context
             )
             
-            print(f"Appended {len(df)} row(s) with {len(variant_columns)} VARIANT column(s): {', '.join(variant_columns)}")
+            logger.info(f"Appended {len(df)} row(s) with VARIANT columns via temp table")
             
         finally:
-            # Clean up temp table
             try:
                 temp_table.drop(if_exists=True)
             except Exception:
-                pass  # Cleanup failure is not critical
+                pass
+
+    def _write_explicit(
+        self,
+        df: pd.DataFrame,
+        target_schema: list['ColumnSchema'],
+        table_exists: bool,
+        json_columns: list[str],
+    ) -> None:
+        """Write using stage + COPY INTO with explicit column projection.
+        
+        This method:
+        1. Creates the table if needed (with correct VARIANT types)
+        2. Writes DataFrame to a temporary Parquet file
+        3. Uploads Parquet to a temporary stage
+        4. Uses COPY INTO with SELECT projection to cast columns to target types
+        5. Cleans up temp stage
+        
+        Advantages:
+        - Native VARIANT support (no post-conversion needed)
+        - Precise type control via explicit projection
+        """
+        from snowlib.primitives import execute_sql
+        from snowlib.utils.schema import schema_to_ddl
+        from snowlib.models import Stage
+        
+        # Create table if it doesn't exist
+        if not table_exists:
+            ddl = schema_to_ddl(target_schema)
+            execute_sql(f"CREATE TABLE {self.fqn} ({ddl})", context=self._context)
+            logger.info(f"Created table {self.fqn}")
+            if json_columns:
+                logger.info(f"Created {len(json_columns)} VARIANT column(s): {json_columns}")
+
+        # Create temp stage
+        random_suffix = secrets.token_hex(4).upper()
+        temp_stage_name = f"SNOWLIB_TMP_STAGE_{random_suffix}"
+        temp_stage = Stage(
+            self._database_name,
+            self._schema_name,
+            temp_stage_name,
+            self._context
+        )
+        
+        try:
+            temp_stage.create(if_not_exists=True)
+            
+            # Write DataFrame to temp Parquet file
+            with tempfile.TemporaryDirectory() as temp_dir:
+                parquet_path = Path(temp_dir) / "data.parquet"
+                
+                df.to_parquet(
+                    parquet_path,
+                    index=False,
+                    compression='snappy',
+                    coerce_timestamps='us',  # Required for Snowflake
+                )
+                
+                # Upload to stage
+                temp_stage.load(
+                    [parquet_path],
+                    auto_compress=False,  # Parquet is already compressed
+                    overwrite=True,
+                    show_progress=False,
+                )
+            
+            # Build column projection for COPY INTO
+            # Use lowercase for Parquet column access, target type for casting
+            select_parts = []
+            for col_schema in target_schema:
+                col_name = col_schema.name
+                col_type = col_schema.snowflake_type
+                # Parquet columns are accessed via $1:column_name
+                # Need to match case - parquet has uppercase from our df.columns transform
+                select_parts.append(f"$1:{col_name}::{col_type} AS {col_name}")
+            
+            select_clause = ", ".join(select_parts)
+            
+            copy_sql = f"""
+            COPY INTO {self.fqn}
+            FROM (
+                SELECT {select_clause}
+                FROM {temp_stage.stage_path}
+            )
+            FILE_FORMAT = (TYPE = 'PARQUET' USE_LOGICAL_TYPE = TRUE)
+            """
+            
+            result = execute_sql(copy_sql, context=self._context)
+            copy_df = result.to_df()
+            
+            if len(copy_df) > 0:
+                rows_loaded = copy_df['rows_loaded'].sum() if 'rows_loaded' in copy_df.columns else len(df)
+                if json_columns:
+                    logger.info(f"Loaded {rows_loaded} row(s) via COPY INTO with {len(json_columns)} VARIANT column(s): {json_columns}")
+                else:
+                    logger.info(f"Loaded {rows_loaded} row(s) via COPY INTO")
+            
+        finally:
+            # Clean up temp stage
+            try:
+                temp_stage.drop(if_exists=True)
+            except Exception:
+                pass
 
     def _convert_columns_to_variant(self, columns: list[str]) -> None:
         """Convert STRING columns to VARIANT using PARSE_JSON via CTAS"""

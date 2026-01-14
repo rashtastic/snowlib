@@ -78,7 +78,9 @@ class SnowflakeContext:
         for config_key, query, friendly_name in validations:
             declared = cfg.get(config_key)
             if declared:
-                result = self._cursor.execute(query).fetchone()
+                assert self._cursor is not None
+                self._cursor.execute(query)
+                result = self._cursor.fetchone()
                 actual = result[0] if result and result[0] else None
                 
                 if actual is None:
