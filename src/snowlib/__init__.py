@@ -35,13 +35,15 @@ from snowlib.models import (
     MaterializedView,
     DynamicTable,
     Column,
+    Stage,
+    StageObject,
     Show,
 )
 
 # Session: Context-bound convenience layer
 from snowlib.session import Session, create_session
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 __all__ = [
     # Layer 1: Configuration & Connection
     "load_profile", 
@@ -65,6 +67,8 @@ __all__ = [
     "MaterializedView",
     "DynamicTable",
     "Column",
+    "Stage",
+    "StageObject",
     "Show",
     # Session
     "Session",

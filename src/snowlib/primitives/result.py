@@ -68,7 +68,7 @@ class QueryResult:
 
     def fetch_batches(self, lowercase_columns: bool = True) -> Generator[pd.DataFrame, None, None]:
         """Fetch results in batches of DataFrames with optional column casing"""
-        if HAS_PYARROW and self._use_arrow:
+        if HAS_PYARROW and self._use_arrow and pa is not None:
             try:
                 for batch_df in self._cursor.fetch_pandas_batches():
                     if lowercase_columns:
@@ -82,6 +82,16 @@ class QueryResult:
                     stacklevel=2,
                 )
                 # Fall through to native fetch below
+            except Exception as e:
+                # DDL/DML statements don't return Arrow format - silently fall back
+                if "NotSupportedError" in type(e).__name__:
+                    pass  # Expected for DDL/DML, fall through to native fetch
+                else:
+                    warnings.warn(
+                        f"Arrow batch fetch failed unexpectedly. Falling back to native fetch. Error: {e}",
+                        UserWarning,
+                        stacklevel=2,
+                    )
         
         # Fallback: fetch all at once using native types
         df = self._fetch_native_df(lowercase_columns=lowercase_columns)
@@ -90,7 +100,7 @@ class QueryResult:
 
     def to_df(self, lowercase_columns: bool = True) -> pd.DataFrame:
         """Fetch all results as a single DataFrame with optional column casing"""
-        if HAS_PYARROW and self._use_arrow:
+        if HAS_PYARROW and self._use_arrow and pa is not None:
             try:
                 df = self._cursor.fetch_pandas_all()
                 if lowercase_columns and (not df.empty or len(df.columns) > 0):
@@ -103,6 +113,17 @@ class QueryResult:
                     stacklevel=2,
                 )
                 # Fall through to native fetch below
+            except Exception as e:
+                # DDL/DML statements don't return Arrow format - silently fall back
+                # Common case: NotSupportedError when _query_result_format != "arrow"
+                if "NotSupportedError" in type(e).__name__:
+                    pass  # Expected for DDL/DML, fall through to native fetch
+                else:
+                    warnings.warn(
+                        f"Arrow fetch failed unexpectedly. Falling back to native fetch. Error: {e}",
+                        UserWarning,
+                        stacklevel=2,
+                    )
         
         return self._fetch_native_df(lowercase_columns=lowercase_columns)
     
