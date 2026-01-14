@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import ClassVar, Optional, Any, cast
+from typing import ClassVar, Optional, Any
 
 from snowlib.context import SnowflakeContext
 from snowlib.models.base import SchemaChild
@@ -15,7 +15,6 @@ try:
     from tqdm import tqdm
     HAS_TQDM = True
 except ImportError:
-    tqdm = None  # type: ignore
     HAS_TQDM = False
 
 
@@ -44,7 +43,7 @@ class StageObject:
         result = execute_sql(f"REMOVE {self.path}", self._stage._context)
         df = result.to_df()
         if len(df) > 0:
-            return cast(dict[str, Any], df.iloc[0].to_dict())
+            return df.iloc[0].to_dict()
         return {"status": "no result"}
     
     def __repr__(self) -> str:
@@ -119,7 +118,7 @@ class Stage(SchemaChild):
         """Remove all files from the stage"""
         result = execute_sql(f"REMOVE {self.stage_path}", self._context)
         df = result.to_df()
-        return cast(list[dict[str, Any]], df.to_dict('records')) if len(df) > 0 else []
+        return df.to_dict('records') if len(df) > 0 else []
     
     def load(
         self,
@@ -127,30 +126,11 @@ class Stage(SchemaChild):
         auto_compress: bool = True,
         overwrite: bool = False,
         show_progress: bool = True,
-        prefix: Optional[str] = None,
     ) -> list[dict[str, Any]]:
-        """Upload local files to the stage with progress bar
-        
-        Args:
-            files: List of local file paths to upload
-            auto_compress: Whether to automatically compress files during upload
-            overwrite: Whether to overwrite existing files in the stage
-            show_progress: Whether to show progress bar (requires tqdm)
-            prefix: Optional subdirectory path within the stage (e.g., 'courses', 'data/2024')
-        
-        Returns:
-            List of dicts with upload results for each file
-        """
+        """Upload local files to the stage with progress bar"""
         results = []
         
-        # Build target path with optional prefix
-        target_path = self.stage_path
-        if prefix:
-            # Normalize prefix (strip leading/trailing slashes)
-            prefix = prefix.strip('/')
-            target_path = f"{self.stage_path}/{prefix}"
-        
-        iterator = tqdm(files, desc="Uploading") if (show_progress and HAS_TQDM and tqdm is not None) else files
+        iterator = tqdm(files, desc="Uploading") if (show_progress and HAS_TQDM) else files
         
         for file_path in iterator:
             if not file_path.exists():
@@ -161,7 +141,7 @@ class Stage(SchemaChild):
                 })
                 continue
             
-            sql = f"PUT 'file://{file_path.as_posix()}' {target_path}"
+            sql = f"PUT 'file://{file_path.as_posix()}' {self.stage_path}"
             sql += f" AUTO_COMPRESS = {str(auto_compress).upper()}"
             sql += f" OVERWRITE = {str(overwrite).upper()}"
             
@@ -169,7 +149,7 @@ class Stage(SchemaChild):
                 result = execute_sql(sql, self._context)
                 df = result.to_df()
                 if len(df) > 0:
-                    row_dict = cast(dict[str, Any], df.iloc[0].to_dict())
+                    row_dict = df.iloc[0].to_dict()
                     row_dict["query_id"] = result.query_id
                     results.append(row_dict)
                 else:
