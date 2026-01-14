@@ -35,6 +35,8 @@ from snowlib.models import (
     MaterializedView,
     DynamicTable,
     Column,
+    Stage,
+    StageObject,
     Show,
 )
 
@@ -65,6 +67,8 @@ __all__ = [
     "MaterializedView",
     "DynamicTable",
     "Column",
+    "Stage",
+    "StageObject",
     "Show",
     # Session
     "Session",

@@ -82,6 +82,16 @@ class QueryResult:
                     stacklevel=2,
                 )
                 # Fall through to native fetch below
+            except Exception as e:
+                # DDL/DML statements don't return Arrow format - silently fall back
+                if "NotSupportedError" in type(e).__name__:
+                    pass  # Expected for DDL/DML, fall through to native fetch
+                else:
+                    warnings.warn(
+                        f"Arrow batch fetch failed unexpectedly. Falling back to native fetch. Error: {e}",
+                        UserWarning,
+                        stacklevel=2,
+                    )
         
         # Fallback: fetch all at once using native types
         df = self._fetch_native_df(lowercase_columns=lowercase_columns)
@@ -103,6 +113,17 @@ class QueryResult:
                     stacklevel=2,
                 )
                 # Fall through to native fetch below
+            except Exception as e:
+                # DDL/DML statements don't return Arrow format - silently fall back
+                # Common case: NotSupportedError when _query_result_format != "arrow"
+                if "NotSupportedError" in type(e).__name__:
+                    pass  # Expected for DDL/DML, fall through to native fetch
+                else:
+                    warnings.warn(
+                        f"Arrow fetch failed unexpectedly. Falling back to native fetch. Error: {e}",
+                        UserWarning,
+                        stacklevel=2,
+                    )
         
         return self._fetch_native_df(lowercase_columns=lowercase_columns)
     

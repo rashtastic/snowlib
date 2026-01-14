@@ -9,6 +9,7 @@ from .base import Container, FQN
 if TYPE_CHECKING:
     from .database import Database
     from .table import Table, View
+    from .stage import Stage
 
 
 class Schema(Container):
@@ -89,6 +90,11 @@ class Schema(Container):
         from .table import View
         return View(self._database_name, self._schema_name, name, self._context)
     
+    def stage(self, name: str) -> 'Stage':
+        """Get specific stage by name"""
+        from .stage import Stage
+        return Stage(self._database_name, self._schema_name, name, self._context)
+    
     def has_table(self, name: str) -> bool:
         """Check if table exists in schema"""
         from .table import Table
@@ -98,3 +104,8 @@ class Schema(Container):
         """Check if view exists in schema"""
         from .table import View
         return self._show_instance.exists(View, name, container=self)
+    
+    def has_stage(self, name: str) -> bool:
+        """Check if stage exists in schema"""
+        from .stage import Stage
+        return self._show_instance.exists(Stage, name, container=self)
