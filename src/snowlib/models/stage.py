@@ -127,9 +127,28 @@ class Stage(SchemaChild):
         auto_compress: bool = True,
         overwrite: bool = False,
         show_progress: bool = True,
+        prefix: Optional[str] = None,
     ) -> list[dict[str, Any]]:
-        """Upload local files to the stage with progress bar"""
+        """Upload local files to the stage with progress bar
+        
+        Args:
+            files: List of local file paths to upload
+            auto_compress: Whether to automatically compress files during upload
+            overwrite: Whether to overwrite existing files in the stage
+            show_progress: Whether to show progress bar (requires tqdm)
+            prefix: Optional subdirectory path within the stage (e.g., 'courses', 'data/2024')
+        
+        Returns:
+            List of dicts with upload results for each file
+        """
         results = []
+        
+        # Build target path with optional prefix
+        target_path = self.stage_path
+        if prefix:
+            # Normalize prefix (strip leading/trailing slashes)
+            prefix = prefix.strip('/')
+            target_path = f"{self.stage_path}/{prefix}"
         
         iterator = tqdm(files, desc="Uploading") if (show_progress and HAS_TQDM and tqdm is not None) else files
         
@@ -142,7 +161,7 @@ class Stage(SchemaChild):
                 })
                 continue
             
-            sql = f"PUT 'file://{file_path.as_posix()}' {self.stage_path}"
+            sql = f"PUT 'file://{file_path.as_posix()}' {target_path}"
             sql += f" AUTO_COMPRESS = {str(auto_compress).upper()}"
             sql += f" OVERWRITE = {str(overwrite).upper()}"
             
