@@ -6,7 +6,7 @@ import pandas as pd
 
 from snowlib.context import SnowflakeContext
 from snowlib.primitives import Executor, QueryResult, AsyncQuery
-from snowlib.models import Database, Schema, Table, View, MaterializedView, DynamicTable
+from snowlib.models import Database, Schema, Table, View, MaterializedView, DynamicTable, Stage
 
 
 class HasFromName(Protocol):
@@ -139,6 +139,11 @@ class Session:
     def dynamic_table(self) -> BoundModel[DynamicTable]:
         """Bound DynamicTable model"""
         return BoundModel(DynamicTable, self._context)
+    
+    @property
+    def stage(self) -> BoundModel[Stage]:
+        """Bound Stage model: session.stage("DB", "SCHEMA", "NAME") or session.stage.from_name("DB.SCHEMA.NAME")"""
+        return BoundModel(Stage, self._context)
     
     # Lifecycle
     
