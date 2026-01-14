@@ -14,6 +14,8 @@ This document orients developers to the snowlib codebase. After reading this, yo
 | Add configuration options | `src/snowlib/connection/paths.py`, `profiles.py` |
 | Modify context-bound session | `src/snowlib/session.py` |
 | JSON column handling | `src/snowlib/utils/json_columns.py` |
+| Schema inference from DataFrames | `src/snowlib/utils/schema.py` |
+| Stage file operations | `src/snowlib/models/stage.py` |
 | Write unit tests | `tests/unit/` |
 | Write integration tests | `tests/integration/` |
 | Update public API | `src/snowlib/__init__.py` |
@@ -24,7 +26,8 @@ This document orients developers to the snowlib codebase. After reading this, yo
 - Results: `QueryResult`, `AsyncQuery`
 - Context: `SnowflakeContext`
 - Session: `Session`, `create_session`
-- Models: `Database`, `Schema`, `Table`, `View`, `MaterializedView`, `DynamicTable`, `Column`, `Show`
+- Models: `Database`, `Schema`, `Table`, `View`, `MaterializedView`, `DynamicTable`, `Column`, `Stage`, `StageObject`, `Show`
+- Types: `TableLike`, `WriteMethod`
 - Connection: `load_profile`, `list_profiles`, `SnowflakeConnector`, `SnowparkConnector`
 
 ## Architecture: Onion Layers
@@ -110,8 +113,9 @@ Object-oriented abstractions for Snowflake objects. Objects are lightweight prox
 |----------|---------|
 | `database.py` | `Database` class |
 | `schema.py` | `Schema` class |
-| `table/` | `Table`, `View`, `MaterializedView`, `DynamicTable` |
+| `table/` | `Table`, `View`, `MaterializedView`, `DynamicTable`, `TableLike`, `WriteMethod` |
 | `column.py` | `Column` class |
+| `stage.py` | `Stage` and `StageObject` classes for internal named stages |
 | `base/` | Core abstractions: `SnowflakeObject`, `Container`, `FQN`, `Show` |
 
 **Usage pattern**:
@@ -144,6 +148,36 @@ table.write(more_data, if_exists="append")  # Works seamlessly with VARIANT
 **Important**: The models layer only supports **unquoted identifiers**. For quoted identifiers (e.g., `"My Table"`), use the primitives layer directly.
 
 **JSON Column Handling**: `Table.write()` automatically detects columns containing dicts or lists, serializes them to JSON strings, loads them as STRING, then converts them to VARIANT. For append operations to existing tables with VARIANT columns, data is routed through a temporary table to ensure proper type conversion. Top-level nulls (None, np.nan, pd.NA) become SQL NULL, while None inside structures becomes JSON null. Columns with np.nan or np.inf inside structures are rejected as non-JSON-eligible.
+
+**Stage Usage**:
+```python
+from snowlib import Stage, SnowflakeContext
+from pathlib import Path
+
+ctx = SnowflakeContext(profile="dev")
+stage = Stage("MY_DB", "MY_SCHEMA", "MY_STAGE", ctx)
+
+# Create the stage
+stage.create()
+
+# Upload files (with optional progress bar if tqdm is installed)
+stage.load([Path("data.csv"), Path("data2.csv")], auto_compress=True, overwrite=False)
+
+# List objects in stage
+for obj in stage.objects:
+    print(f"{obj.name}: {obj.size} bytes")
+
+# Individual file operations
+obj = stage.list()[0]
+print(obj.path)     # @DB.SCHEMA.STAGE/filename
+obj.delete()        # Remove single file
+
+# Clear all files
+stage.clear()
+
+# Drop the stage
+stage.drop(if_exists=True)
+```
 
 ## SnowflakeContext
 
@@ -185,8 +219,13 @@ with create_session(profile="dev") as session:
     session.query("SELECT 1")
     session.execute_sql("DELETE FROM temp", bindings=[...])
     
-    # Models - factory methods bound to session
+    # Models - factory methods bound to session (two patterns)
+    # Pattern 1: Direct instantiation with positional args
     table = session.table("MY_DB", "MY_SCHEMA", "SALES")
+    
+    # Pattern 2: from_name with FQN string
+    table = session.table.from_name("MY_DB.MY_SCHEMA.SALES")
+    
     df = table.read()
 ```
 
@@ -314,10 +353,11 @@ snowlib/
 │   ├── connection/           # Layer 1: Core connectivity
 │   ├── primitives/           # Layer 2: SQL execution functions
 │   ├── models/               # Layer 3: OOP interface
-│   ├── utils/                # Shared utilities (identifiers, query helpers, JSON columns)
+│   ├── utils/                # Shared utilities (identifiers, query helpers, JSON columns, schema)
 │   │   ├── identifiers.py    # Identifier validation
 │   │   ├── query.py          # Query building helpers
-│   │   └── json_columns.py   # JSON column detection and serialization
+│   │   ├── json_columns.py   # JSON column detection and serialization
+│   │   └── schema.py         # Schema inference from pandas DataFrames
 │   └── _data/                # Example config files (bundled with package)
 ├── tests/
 │   ├── conftest.py           # Shared fixtures
@@ -364,6 +404,7 @@ database = "YOUR_TEST_DB"
 schema = "YOUR_TEST_SCHEMA"
 write_table = "TEST_WRITE"    # Tables will be created/dropped
 temp_table = "TEST_TEMP"
+read_table = "DATABASE.SCHEMA.EXISTING_TABLE"  # Required: existing table for read tests
 ```
 
 ### Running Tests
@@ -408,10 +449,15 @@ Key fixtures from `tests/conftest.py`:
 | Fixture | Scope | Purpose |
 |---------|-------|---------|
 | `test_profile` | session | Profile name for integration tests |
+| `test_profile2` | session | Optional second profile for testing different auth methods |
 | `test_database` | session | Target database |
 | `test_schema` | session | Target schema |
-| `ctx` | class | Reusable `SnowflakeContext` |
+| `test_write_table` | session | Table name for write tests (created/dropped) |
+| `test_temp_table` | session | Table name for temporary test data |
+| `test_read_table` | session | Existing table for read tests |
 | `check_pandas_integration` | session | Skip if pyarrow not available |
+
+**Note**: The `ctx` fixture (SnowflakeContext) is defined in individual test files at class scope to enable connection reuse within test classes.
 
 ## Adding New Features
 
