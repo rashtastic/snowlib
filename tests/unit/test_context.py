@@ -483,17 +483,22 @@ class TestSessionContextValidation:
         mock_connector_instance._cfg = cfg
         mock_connector_class.return_value = mock_connector_instance
         
-        # Setup cursor to return different results for different queries
+        # Track the last executed query to return appropriate fetchone result
+        last_query = [None]  # Use list to allow mutation in closure
+        
         def execute_side_effect(query):
-            result_mock = Mock()
+            last_query[0] = query
+            return mock_cur  # execute() returns the cursor for chaining
+        
+        def fetchone_side_effect():
+            query = last_query[0]
             for key, value in cursor_results.items():
                 if key in query:
-                    result_mock.fetchone.return_value = (value,)
-                    return result_mock
-            result_mock.fetchone.return_value = (None,)
-            return result_mock
+                    return (value,)
+            return (None,)
         
         mock_cur.execute.side_effect = execute_side_effect
+        mock_cur.fetchone.side_effect = fetchone_side_effect
         return mock_conn, mock_cur
 
     @patch('snowlib.connection.SnowflakeConnector')
