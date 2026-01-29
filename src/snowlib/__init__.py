@@ -43,7 +43,7 @@ from snowlib.models import (
 # Session: Context-bound convenience layer
 from snowlib.session import Session, create_session
 
-__version__ = "0.4.6"
+__version__ = "0.4.7"
 __all__ = [
     # Layer 1: Configuration & Connection
     "load_profile", 

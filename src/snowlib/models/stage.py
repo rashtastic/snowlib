@@ -139,9 +139,24 @@ class Stage(SchemaChild):
         """Get all objects in the stage"""
         return self.list()
     
-    def clear(self) -> list[dict[str, Any]]:
-        """Remove all files from the stage"""
-        result = execute_sql(f"REMOVE {self.stage_path}", self._context)
+    def clear(self, prefix: Optional[str] = None) -> list[dict[str, Any]]:
+        """Remove files from the stage.
+        
+        Args:
+            prefix: Only remove files under this path prefix (e.g., "users/").
+                    If None, removes all files from the stage.
+        
+        Returns:
+            List of dicts with removal results for each file.
+        """
+        # Build target path with optional prefix
+        target_path = self.stage_path
+        if prefix:
+            # Normalize prefix (strip leading/trailing slashes)
+            prefix = prefix.strip('/')
+            target_path = f"{self.stage_path}/{prefix}"
+        
+        result = execute_sql(f"REMOVE {target_path}", self._context)
         df = result.to_df()
         return cast(list[dict[str, Any]], df.to_dict('records')) if len(df) > 0 else []
     
