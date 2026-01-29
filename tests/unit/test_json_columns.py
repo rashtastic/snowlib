@@ -116,14 +116,14 @@ class TestSerializeJsonColumn:
         series = pd.Series([{"a": 1}, None, {"b": 2}])
         result = serialize_json_column(series)
         assert result[0] == '{"a": 1}'
-        assert result[1] is None
+        assert pd.isna(result[1])
         assert result[2] == '{"b": 2}'
 
     def test_preserves_top_level_nan_as_none(self):
         series = pd.Series([{"a": 1}, np.nan, {"b": 2}])
         result = serialize_json_column(series)
         assert result[0] == '{"a": 1}'
-        assert result[1] is None
+        assert pd.isna(result[1])
         assert result[2] == '{"b": 2}'
 
     def test_nested_none_becomes_json_null(self):
@@ -199,5 +199,5 @@ class TestPrepareJsonColumns:
 
         assert json_cols == ["data"]
         assert result_df["data"][0] == '{"a": 1}'
-        assert result_df["data"][1] is None
+        assert pd.isna(result_df["data"][1])
         assert result_df["data"][2] == '{"c": 3}'
