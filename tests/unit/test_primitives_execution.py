@@ -23,17 +23,15 @@ class TestExecuteSQL:
         """Test that execute_sql returns rowcount for DML."""
         from snowlib.primitives import execute_sql
         
-        # Setup mock context
+        # Setup mock cursor (returned by new_cursor())
         mock_cur = Mock()
-        mock_result = Mock()
-        mock_result.rowcount = 5
-        mock_result.sfqid = "test-query-id-123"
-        mock_result.query = "DELETE FROM test_table WHERE id < 100"
-        mock_result.description = None
-        mock_cur.execute.return_value = mock_result
+        mock_cur.rowcount = 5
+        mock_cur.sfqid = "test-query-id-123"
+        mock_cur.query = "DELETE FROM test_table WHERE id < 100"
+        mock_cur.description = None
         
         mock_ctx = Mock()
-        mock_ctx.cursor = mock_cur
+        mock_ctx.new_cursor.return_value = mock_cur
         mock_context.return_value = mock_ctx
         
         # Verify the mock is being used
@@ -57,17 +55,15 @@ class TestExecuteSQL:
         """Test that execute_sql returns -1 for DDL."""
         from snowlib.primitives import execute_sql
         
-        # Setup mock - DDL returns rowcount of -1
+        # Setup mock cursor (returned by new_cursor()) - DDL returns rowcount of -1
         mock_cur = Mock()
-        mock_result = Mock()
-        mock_result.rowcount = -1
-        mock_result.sfqid = "test-ddl-query-id"
-        mock_result.query = "CREATE TABLE test (id INT)"
-        mock_result.description = None
-        mock_cur.execute.return_value = mock_result
+        mock_cur.rowcount = -1
+        mock_cur.sfqid = "test-ddl-query-id"
+        mock_cur.query = "CREATE TABLE test (id INT)"
+        mock_cur.description = None
         
         mock_ctx = Mock()
-        mock_ctx.cursor = mock_cur
+        mock_ctx.new_cursor.return_value = mock_cur
         mock_context.return_value = mock_ctx
         
         # Test
@@ -79,12 +75,12 @@ class TestExecuteSQL:
         """Test execute_sql passes profile and overrides to context."""
         from snowlib.primitives import execute_sql
         
-        # Setup mock
+        # Setup mock cursor (returned by new_cursor())
         mock_cur = Mock()
-        mock_cur.execute.return_value = Mock(rowcount=0)
+        mock_cur.rowcount = 0
         
         mock_ctx = Mock()
-        mock_ctx.cursor = mock_cur
+        mock_ctx.new_cursor.return_value = mock_cur
         mock_context.return_value = mock_ctx
         
         # Test with custom profile and overrides
@@ -174,7 +170,7 @@ class TestExecuteSQLAsync:
         """Test that execute_sql_async returns an AsyncQuery."""
         from snowlib.primitives import execute_sql_async, AsyncQuery
         
-        # Setup mock context
+        # Setup mock cursor (returned by new_cursor())
         mock_cur = Mock()
         mock_cur.execute_async.return_value = {
             "queryId": "test-async-query-id-456",
@@ -182,7 +178,7 @@ class TestExecuteSQLAsync:
         }
         
         mock_ctx = Mock()
-        mock_ctx.cursor = mock_cur
+        mock_ctx.new_cursor.return_value = mock_cur
         mock_ctx.connection = Mock()
         mock_context.return_value = mock_ctx
         
@@ -206,7 +202,7 @@ class TestExecuteSQLAsync:
         from snowlib.primitives import execute_sql_async
         from snowlib.context import SnowflakeContext
         
-        # Setup mock context
+        # Setup mock cursor (returned by new_cursor())
         mock_cur = Mock()
         mock_cur.execute_async.return_value = {
             "queryId": "test-query-id",
@@ -214,7 +210,7 @@ class TestExecuteSQLAsync:
         }
         
         mock_ctx = Mock(spec=SnowflakeContext)
-        mock_ctx.cursor = mock_cur
+        mock_ctx.new_cursor.return_value = mock_cur
         mock_ctx.connection = Mock()
         
         # Test - pass context object directly
@@ -234,7 +230,7 @@ class TestExecuteSQLAsync:
         """Test that execute_sql_async raises RuntimeError if queryId is missing."""
         from snowlib.primitives import execute_sql_async
         
-        # Setup mock context with response missing queryId
+        # Setup mock cursor (returned by new_cursor()) with response missing queryId
         mock_cur = Mock()
         mock_cur.execute_async.return_value = {
             "success": True
@@ -242,7 +238,7 @@ class TestExecuteSQLAsync:
         }
         
         mock_ctx = Mock()
-        mock_ctx.cursor = mock_cur
+        mock_ctx.new_cursor.return_value = mock_cur
         mock_ctx.connection = Mock()
         mock_context.return_value = mock_ctx
         
@@ -254,7 +250,7 @@ class TestExecuteSQLAsync:
         """Test execute_sql_async passes overrides to SnowflakeContext."""
         from snowlib.primitives import execute_sql_async
         
-        # Setup mock context
+        # Setup mock cursor (returned by new_cursor())
         mock_cur = Mock()
         mock_cur.execute_async.return_value = {
             "queryId": "test-query-id",
@@ -262,7 +258,7 @@ class TestExecuteSQLAsync:
         }
         
         mock_ctx = Mock()
-        mock_ctx.cursor = mock_cur
+        mock_ctx.new_cursor.return_value = mock_cur
         mock_ctx.connection = Mock()
         mock_context.return_value = mock_ctx
         
@@ -280,3 +276,94 @@ class TestExecuteSQLAsync:
         )
         
         assert job.query_id == "test-query-id"
+
+
+class TestThreadSafety:
+    """Tests for thread-safety of concurrent query execution."""
+    
+    def test_concurrent_executions_use_separate_cursors(self, mock_context):
+        """Test that each execute_sql call gets its own cursor.
+        
+        This prevents race conditions where one thread's execute() overwrites
+        another thread's result set before it can be fetched.
+        
+        Scenario from issue:
+        - Thread A: execute_sql("SELECT 1 AS col_a") -> cursor._result_set = A's results
+        - Thread B: execute_sql("SELECT 2 AS col_b") -> cursor._result_set = B's results (overwrites!)
+        - Thread A: result.to_df() -> would get B's columns if cursor was shared
+        """
+        from snowlib.primitives import execute_sql
+        from concurrent.futures import ThreadPoolExecutor
+        
+        # Track which cursor each call receives
+        cursors_used = []
+        
+        def make_cursor():
+            """Factory that creates unique cursor mocks."""
+            cursor = Mock()
+            cursor.sfqid = f"query-{len(cursors_used)}"
+            cursor.rowcount = 1
+            cursor.description = [("col", None, None, None, None, None, None)]
+            cursors_used.append(cursor)
+            return cursor
+        
+        mock_ctx = Mock()
+        mock_ctx.new_cursor.side_effect = make_cursor
+        mock_context.return_value = mock_ctx
+        
+        # Simulate concurrent execution
+        def run_query(query_num):
+            return execute_sql(f"SELECT {query_num}", context="test")
+        
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [pool.submit(run_query, i) for i in range(3)]
+            results = [f.result() for f in futures]
+        
+        # Verify each execution got its own cursor
+        assert mock_ctx.new_cursor.call_count == 3
+        assert len(cursors_used) == 3
+        
+        # Verify results reference different cursors
+        cursor_ids = {id(r._cursor) for r in results}
+        assert len(cursor_ids) == 3, "Each QueryResult should have its own cursor"
+    
+    def test_query_result_isolation(self, mock_context):
+        """Test that QueryResult objects are isolated from subsequent executions.
+        
+        Even if called sequentially, each QueryResult should hold its own cursor
+        so that calling execute_sql again doesn't affect previous results.
+        """
+        from snowlib.primitives import execute_sql
+        
+        # Create distinct cursor mocks for each call
+        cursor_a = Mock()
+        cursor_a.sfqid = "query-a"
+        cursor_a.rowcount = 1
+        cursor_a.description = [("col_a", None, None, None, None, None, None)]
+        cursor_a.fetchall.return_value = [("value_a",)]
+        
+        cursor_b = Mock()
+        cursor_b.sfqid = "query-b"
+        cursor_b.rowcount = 1
+        cursor_b.description = [("col_b", None, None, None, None, None, None)]
+        cursor_b.fetchall.return_value = [("value_b",)]
+        
+        mock_ctx = Mock()
+        mock_ctx.new_cursor.side_effect = [cursor_a, cursor_b]
+        mock_context.return_value = mock_ctx
+        
+        # Execute first query
+        result_a = execute_sql("SELECT 'a' AS col_a", context="test")
+        
+        # Execute second query (this would overwrite result_a's cursor in old implementation)
+        result_b = execute_sql("SELECT 'b' AS col_b", context="test")
+        
+        # Verify result_a still has its own cursor and can fetch correctly
+        assert result_a._cursor is cursor_a
+        assert result_a.query_id == "query-a"
+        assert result_a.fetch_all() == [("value_a",)]
+        
+        # Verify result_b has its own separate cursor
+        assert result_b._cursor is cursor_b
+        assert result_b.query_id == "query-b"
+        assert result_b.fetch_all() == [("value_b",)]

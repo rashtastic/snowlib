@@ -54,11 +54,28 @@ class SnowflakeContext:
 
     @property
     def cursor(self) -> Any:
-        """Get Snowflake cursor, creating if needed"""
+        """Get Snowflake cursor, creating if needed
+        
+        Note: This cached cursor is used for connection validation and internal operations.
+        For query execution, use new_cursor() to avoid thread-safety issues.
+        """
         if self._cursor is None:
             self._cursor = self.connection.cursor()
 
         return self._cursor
+
+    def new_cursor(self) -> Any:
+        """Create a new cursor for query execution.
+        
+        Each query should use its own cursor to ensure thread-safety.
+        The cursor holds result state internally, so sharing a cursor between
+        concurrent queries causes race conditions where one query's results
+        can be overwritten by another before being fetched.
+        
+        Creating multiple cursors from the same connection does not trigger
+        re-authentication - the connection holds auth state, not the cursor.
+        """
+        return self.connection.cursor()
 
     def _validate_session_context(self) -> None:
         """Validate that declared connection values match actual session values"""

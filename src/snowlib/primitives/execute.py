@@ -27,11 +27,15 @@ class Executor:
         bindings: Optional[Sequence[Any]] = None,
         arrow: bool = True,
     ) -> QueryResult:
-        """Execute SQL and return a QueryResult"""
+        """Execute SQL and return a QueryResult
+        
+        Each execution uses a fresh cursor to ensure thread-safety.
+        """
+        cursor = self.context.new_cursor()
         if bindings is None:
-            cursor = self.context.cursor.execute(sql)
+            cursor.execute(sql)
         else:
-            cursor = self.context.cursor.execute(sql, bindings)
+            cursor.execute(sql, bindings)
         return QueryResult(_cursor=cursor, _use_arrow=arrow)
 
     def run_async(
@@ -39,8 +43,11 @@ class Executor:
         sql: str, 
         bindings: Optional[Sequence[Any]] = None
     ) -> AsyncQuery:
-        """Execute SQL asynchronously and return an AsyncQuery"""
-        cursor = self.context.cursor
+        """Execute SQL asynchronously and return an AsyncQuery
+        
+        Each execution uses a fresh cursor to ensure thread-safety.
+        """
+        cursor = self.context.new_cursor()
         if bindings is None:
             response_data = cursor.execute_async(sql)
         else:
