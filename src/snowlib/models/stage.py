@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +11,8 @@ from typing import ClassVar, Optional, Any, cast
 from snowlib.context import SnowflakeContext
 from snowlib.models.base import SchemaChild
 from snowlib.primitives import execute_sql, query
+
+logger = logging.getLogger(__name__)
 
 try:
     from tqdm import tqdm
@@ -206,11 +209,12 @@ class Stage(SchemaChild):
                     "message": str(e),
                 })
         
-        # Print summary
-        uploaded = sum(1 for r in results if r.get("status") == "UPLOADED")
-        skipped = sum(1 for r in results if r.get("status") == "SKIPPED")
-        failed = sum(1 for r in results if r.get("status") in ("ERROR", "UNKNOWN"))
-        print(f"Upload complete: {uploaded} uploaded, {skipped} skipped, {failed} failed")
+        # Log summary if progress reporting is enabled
+        if show_progress:
+            uploaded = sum(1 for r in results if r.get("status") == "UPLOADED")
+            skipped = sum(1 for r in results if r.get("status") == "SKIPPED")
+            failed = sum(1 for r in results if r.get("status") in ("ERROR", "UNKNOWN"))
+            logger.info(f"Upload complete: {uploaded} uploaded, {skipped} skipped, {failed} failed")
         
         return results
     
