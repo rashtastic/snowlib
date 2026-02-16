@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Union
 from pydantic import SecretStr
 import keyring
 from cryptography.hazmat.primitives import serialization
@@ -14,12 +14,12 @@ from .profiles import load_profile
 class BaseConnector:
     """Base class for Snowflake connectors with TOML profile support and authentication handling"""
     
-    def __init__(self, profile: str, **kwargs: Any) -> None:
+    def __init__(self, profile: str, config_path: Optional[Union[str, Path]] = None, **kwargs: Any) -> None:
         """Initialize the connector with a configuration profile and optional parameter overrides"""
         self.password: Optional[str] = None
         self.private_key: Optional[Any] = None
 
-        self._cfg: Dict[str, Any] = load_profile(profile)
+        self._cfg: Dict[str, Any] = load_profile(profile, path=config_path)
         self._cfg.update(kwargs)
         self._profile = profile
         self._process_auth()

@@ -28,7 +28,7 @@ This document orients developers to the snowlib codebase. After reading this, yo
 - Session: `Session`, `create_session`
 - Models: `Database`, `Schema`, `Table`, `View`, `MaterializedView`, `DynamicTable`, `Column`, `Stage`, `StageObject`, `Show`
 - Types: `TableLike`, `WriteMethod`
-- Connection: `load_profile`, `list_profiles`, `SnowflakeConnector`, `SnowparkConnector`
+- Connection: `load_profile`, `list_profiles`, `SnowflakeConnector`, `SnowparkConnector`, `get_config_directory`
 
 ## Architecture: Onion Layers
 
@@ -62,7 +62,7 @@ Manages connection profiles and connection objects. This is the foundation that 
 
 | File | Purpose |
 |------|---------|
-| `paths.py` | Configuration directory resolution (`CONF_DIR`), file path utilities |
+| `paths.py` | Configuration directory resolution (`get_config_directory`, `CONF_DIR`), file path utilities |
 | `profiles.py` | Load/list TOML connection profiles |
 | `connection.py` | `SnowflakeConnector` and `SnowparkConnector` classes |
 | `base.py` | `BaseConnector` with shared authentication logic |
@@ -192,6 +192,9 @@ ctx = SnowflakeContext(profile="dev")
 # Option 2: From existing connection
 ctx = SnowflakeContext(connection=existing_conn, cursor=existing_cursor)
 
+# Option 3: From profile with custom config file path
+ctx = SnowflakeContext(profile="dev", config_path="/path/to/connections.toml")
+
 # Context manager pattern
 with SnowflakeContext(profile="dev") as ctx:
     result = execute_sql("SELECT 1", context=ctx)
@@ -227,6 +230,10 @@ with create_session(profile="dev") as session:
     table = session.table.from_name("MY_DB.MY_SCHEMA.SALES")
     
     df = table.read()
+
+# Custom config file path (useful for downstream libraries)
+with create_session(profile="myapp", config_path="/path/to/connections.toml") as session:
+    session.query("SELECT 1")
 ```
 
 **When to use**:
@@ -312,12 +319,17 @@ print(f"JSON columns: {json_cols}")  # ['data']
 
 ## Configuration System
 
-**Location**: `~/.snowlib/` (or `SNOWLIB_CONFIG_DIR` env var)
+**Location**: `~/.snowlib/` (default)
 
 | File | Purpose |
-|------|---------|
+|------|---------||
 | `connections.toml` | Connection profiles (`[default]`, `[dev]`, `[prod]`, etc.) |
 | `test_config.toml` | Test-specific settings for pytest |
+
+**Config file resolution order** (first match wins):
+1. Explicit `config_path` argument passed to `Session`, `SnowflakeContext`, or `SnowflakeConnector`
+2. `SNOWLIB_CONFIG_DIR` environment variable (directory containing `connections.toml`)
+3. `~/.snowlib/connections.toml` (default)
 
 Example `connections.toml`:
 ```toml
@@ -336,10 +348,23 @@ database = "DEV_DATABASE"
 authenticator = "externalbrowser"
 ```
 
-**Key constant**: Use `CONF_DIR` from `snowlib.connection.paths` for all config file paths:
+**Config directory access**:
 ```python
+# Preferred: evaluates at call time (picks up SNOWLIB_CONFIG_DIR changes)
+from snowlib.connection import get_config_directory
+config_file = get_config_directory() / "connections.toml"
+
+# Legacy: evaluated once at import time
 from snowlib.connection import CONF_DIR
 config_file = CONF_DIR / "connections.toml"
+```
+
+**Custom config path** (for downstream libraries):
+```python
+from snowlib import Session
+
+# Point to a specific connections.toml file
+session = Session(profile="myapp", config_path="/opt/myapp/.snowlib/connections.toml")
 ```
 
 ## Directory Structure
@@ -382,8 +407,8 @@ git clone https://github.com/rashtastic/snowlib.git
 cd snowlib
 
 # Create virtual environment
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 
 # Install in editable mode with dev dependencies
 pip install -e .[dev]
@@ -502,7 +527,7 @@ Install with: `pip install snowlib[snowpark,sqlalchemy]`
 - **Identifiers**: ASCII only, no emojis
 - **Primitives**: Always stateless, require explicit context
 - **Models**: Carry frozen context from instantiation
-- **Config paths**: Always use `CONF_DIR` constant
+- **Config paths**: Use `get_config_directory()` (preferred) or `CONF_DIR` for config file paths
 
 ## Build and Release
 
@@ -543,4 +568,6 @@ def ctx(test_profile):
 
 ### Configuration not found
 
-Ensure `~/.snowlib/connections.toml` exists, or set `SNOWLIB_CONFIG_DIR` environment variable.
+Ensure `~/.snowlib/connections.toml` exists, or use one of these alternatives:
+- Pass `config_path` to `Session`, `SnowflakeContext`, or `SnowflakeConnector`
+- Set `SNOWLIB_CONFIG_DIR` environment variable (must be set before importing snowlib, or use `get_config_directory()` instead of `CONF_DIR`)

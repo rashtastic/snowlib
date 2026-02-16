@@ -81,6 +81,7 @@ dev = [
     # Distribution
     "pip-licenses",
     "nbformat",
+    "nbstripout",
     # All optional dependencies
     "snowlib[sqlalchemy,snowpark,excel]",
 ]

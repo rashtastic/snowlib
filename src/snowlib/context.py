@@ -15,6 +15,7 @@ class SnowflakeContext:
         profile: Optional[str] = None,
         connection: Optional[Any] = None,
         cursor: Optional[Any] = None,
+        config_path: Optional[str] = None,
         **overrides: Any,
     ):
         """Initialize Snowflake context with profile or connection"""
@@ -30,6 +31,7 @@ class SnowflakeContext:
         self._profile = profile
         self._connection = connection
         self._cursor = cursor
+        self._config_path = config_path
         self._overrides = overrides
         self._connector: Optional["SnowflakeConnector"] = None
         self._owns_connector = False
@@ -42,7 +44,7 @@ class SnowflakeContext:
 
             assert self._profile is not None
             self._connector = SnowflakeConnector(
-                profile=self._profile, **self._overrides
+                profile=self._profile, config_path=self._config_path, **self._overrides
             )
             conn, cur = self._connector.connect()
             self._connection = conn

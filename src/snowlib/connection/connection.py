@@ -3,7 +3,7 @@
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 import snowflake.connector
-from typing import Optional, Tuple, Any, Literal
+from typing import Optional, Tuple, Any, Literal, Union
 
 from .base import BaseConnector
 
@@ -11,9 +11,9 @@ from .base import BaseConnector
 class SnowflakeConnector(BaseConnector):
     """Snowflake connection manager with TOML profile support and context manager protocol"""
     
-    def __init__(self, profile: str, **kwargs: Any) -> None:
+    def __init__(self, profile: str, config_path: Optional[str] = None, **kwargs: Any) -> None:
         """Initialize the connector with a configuration profile and optional parameter overrides"""
-        super().__init__(profile, **kwargs)
+        super().__init__(profile, config_path=config_path, **kwargs)
         
         self._connection: Optional[SnowflakeConnection] = None
         self._cursor: Optional[SnowflakeCursor] = None
@@ -60,7 +60,7 @@ class SnowflakeConnector(BaseConnector):
 class SnowparkConnector(BaseConnector):
     """Snowpark session manager with TOML profile support"""
     
-    def __init__(self, profile: str, **kwargs: Any) -> None:
+    def __init__(self, profile: str, config_path: Optional[str] = None, **kwargs: Any) -> None:
         """Initialize the Snowpark connector with a configuration profile and optional parameter overrides"""
         try:
             from snowflake.snowpark import Session
@@ -70,7 +70,7 @@ class SnowparkConnector(BaseConnector):
                 "Install it with: pip install snowflake-snowpark-python"
             )
         
-        super().__init__(profile, **kwargs)
+        super().__init__(profile, config_path=config_path, **kwargs)
         
         self._session: Optional[Any] = None
         self._Session = Session

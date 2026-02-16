@@ -28,13 +28,22 @@ def _get_example_files_dir() -> Path:
     return Path(str(package_data))
 
 
-# Configuration directory (dynamically resolved)
+def get_config_directory() -> Path:
+    """Get the configuration directory for snowlib.
+    
+    Evaluated at call time (not import time) so that SNOWLIB_CONFIG_DIR
+    env var changes are picked up even after first import.
+    """
+    return _get_config_directory()
+
+
+# Backwards-compatible alias (evaluated at import time)
 CONF_DIR = _get_config_directory()
 
 
 def get_default_config_path() -> Path:
     """Get the path to connections.toml configuration file"""
-    config_path = CONF_DIR / "connections.toml"
+    config_path = get_config_directory() / "connections.toml"
     
     if not config_path.exists():
         example_dir = _get_example_files_dir()

@@ -86,7 +86,7 @@ class TestSessionInit:
         
         session = Session(profile="test")
         
-        mock_ctx_class.assert_called_once_with(profile="test")
+        mock_ctx_class.assert_called_once_with(profile="test", config_path=None)
         assert session.context is mock_ctx
         assert session._owns_context is True
     
@@ -96,7 +96,7 @@ class TestSessionInit:
         Session(profile="test", warehouse="MY_WH", role="MY_ROLE")
         
         mock_ctx_class.assert_called_once_with(
-            profile="test", warehouse="MY_WH", role="MY_ROLE"
+            profile="test", config_path=None, warehouse="MY_WH", role="MY_ROLE"
         )
 
 
@@ -303,4 +303,4 @@ class TestCreateSession:
         session = create_session(profile="test")
         
         assert isinstance(session, Session)
-        mock_ctx_class.assert_called_once_with(profile="test")
+        mock_ctx_class.assert_called_once_with(profile="test", config_path=None)

@@ -64,6 +64,7 @@ class Session:
         self,
         profile: Optional[str] = None,
         context: Optional[SnowflakeContext] = None,
+        config_path: Optional[str] = None,
         **overrides: Any,
     ):
         """Initialize session with a profile name or existing context"""
@@ -76,7 +77,7 @@ class Session:
             self._context = context
             self._owns_context = False
         else:
-            self._context = SnowflakeContext(profile=profile, **overrides)
+            self._context = SnowflakeContext(profile=profile, config_path=config_path, **overrides)
             self._owns_context = True
     
     @property
@@ -164,7 +165,8 @@ class Session:
 def create_session(
     profile: Optional[str] = None,
     context: Optional[SnowflakeContext] = None,
+    config_path: Optional[str] = None,
     **overrides: Any,
 ) -> Session:
     """Create a context-bound session for snowlib operations"""
-    return Session(profile=profile, context=context, **overrides)
+    return Session(profile=profile, context=context, config_path=config_path, **overrides)

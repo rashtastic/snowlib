@@ -89,7 +89,7 @@ class TestSnowflakeContextLazyLoading:
         conn = ctx.connection
         
         # Verify connector was created
-        mock_connector_class.assert_called_once_with(profile="test")
+        mock_connector_class.assert_called_once_with(profile="test", config_path=None)
         mock_connector_instance.connect.assert_called_once()
         
         # Verify connection is cached
@@ -120,6 +120,7 @@ class TestSnowflakeContextLazyLoading:
         # Verify overrides were passed
         mock_connector_class.assert_called_once_with(
             profile="test",
+            config_path=None,
             warehouse="LARGE_WH",
             role="ADMIN"
         )

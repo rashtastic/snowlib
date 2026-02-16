@@ -4,7 +4,7 @@
     "**/node_modules",
     "**/__pycache__",
     "tests",
-    "venv"
+    ".venv"
   ],
   "typeCheckingMode": "standard",
   "reportUnusedVariable": "warning",
