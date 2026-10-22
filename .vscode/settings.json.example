@@ -1,0 +1,34 @@
+{
+    // Copy to .vscode/settings.json and set the interpreter path for this OS.
+    // That file is gitignored because the path below differs by platform:
+    //   Windows        ./.venv/Scripts/python.exe
+    //   macOS / Linux  ./.venv/bin/python
+    "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
+    "jupyter.kernels.defaultKernel": "snowlib",
+
+    // Type checking is configured in [tool.pyright] in pyproject.toml, which
+    // overrides any python.analysis.* equivalents here. Stated here because a
+    // user-level "workspace" would otherwise apply.
+    "python.analysis.diagnosticMode": "openFilesOnly",
+
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+
+    // LF on disk, matching .gitattributes; VS Code defaults to CRLF on Windows.
+    "files.eol": "\n",
+
+    "files.exclude": {
+        ".venv": true,
+        "**/__pycache__/": true,
+        "**/.mypy_cache/": true,
+        "**/.pytest_cache/": true,
+        "**/*.egg-info": true
+    },
+
+    "[markdown]": {
+        "editor.wordWrap": "on"
+    }
+}

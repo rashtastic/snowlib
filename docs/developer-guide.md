@@ -408,10 +408,13 @@ cd snowlib
 
 # Create virtual environment
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+. .\venv.ps1
 
 # Install in editable mode with dev dependencies
 pip install -e .[dev]
+
+# Editor settings (the real settings.json is gitignored)
+Copy-Item .vscode\settings.json.example .vscode\settings.json
 
 # Create configuration files
 # Copy example files from src/snowlib/_data/ to ~/.snowlib/
