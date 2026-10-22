@@ -9,6 +9,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from pydantic import SecretStr
 
+from snowlib.utils.connector import connector_version
+
 from .profiles import load_profile
 
 # Profile keys snowlib reads for itself; the connector does not know them and
@@ -30,9 +32,7 @@ KEEP_ALIVE_DETECTION = "enable_server_session_keep_alive_auto_detection"
 
 def _connector_major_version() -> int:
     """Major version of the installed snowflake-connector-python"""
-    import snowflake.connector
-
-    return int(snowflake.connector.__version__.split(".")[0])
+    return connector_version()[0]
 
 
 class BaseConnector:
