@@ -417,6 +417,20 @@ pip install -e .[dev]
 # Copy example files from src/snowlib/_data/ to ~/.snowlib/
 ```
 
+### Notebook filter (once per clone)
+
+Notebooks are committed without outputs through an `nbstripout` clean filter. `.gitattributes` declares it, but the filter itself lives in git config, which is not cloned, so set it up after installing the dev dependencies. From Git Bash, with the venv active:
+
+```bash
+nbstripout --install --attributes .gitattributes
+git config filter.nbstripout.extrakeys "metadata.language_info.version"
+git config filter.nbstripout.clean "$(git config filter.nbstripout.clean) --unix-newlines" && git config diff.ipynb.textconv "$(git config diff.ipynb.textconv) --unix-newlines"
+```
+
+Run the third line once, and again after any re-run of `--install`, which writes the clean and diff commands back without `--unix-newlines`. Confirm with `nbstripout --status` that `extrakeys=` is not empty.
+
+The filter is required, and its command is an absolute path into `.venv`. If the venv is deleted or rebuilt from a Python that no longer exists, every git operation touching a notebook fails with `clean filter 'nbstripout' failed`. Recreate the venv and re-run the commands above.
+
 ## Testing
 
 ### Test Configuration
