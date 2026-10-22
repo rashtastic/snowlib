@@ -49,7 +49,7 @@ Repository = "https://github.com/rashtastic/snowlib.git"
 
 [project.optional-dependencies]
 sqlalchemy = [
-    "sqlalchemy>=2.0",
+    "sqlalchemy>=2.0,<2.1",  # snowflake-sqlalchemy 1.x cannot import under 2.1 and does not cap it
     "snowflake-sqlalchemy>=1.6.0",
 ]
 snowpark = [
