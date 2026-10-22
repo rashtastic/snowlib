@@ -50,7 +50,7 @@ from snowlib.session import Session, create_session
 __version__ = "0.4.8"
 __all__ = [
     # Layer 1: Configuration & Connection
-    "load_profile", 
+    "load_profile",
     "list_profiles",
     "SnowflakeConnector",
     "SnowparkConnector",

@@ -22,7 +22,7 @@ def check_pyproject_complete(project_root: Path) -> None:
 
     if "version" not in project and "version" not in dynamic_fields:
         raise ValueError("Version must be in project or dynamic fields")
-    
+
     print("[OK] pyproject.toml complete")
 
 
@@ -69,7 +69,9 @@ def check_ruff_lint(project_root: Path) -> None:
     """Verify ruff check reports no findings"""
     result = subprocess.run(
         [sys.executable, "-m", "ruff", "check", "."],
-        cwd=project_root, capture_output=True, text=True
+        cwd=project_root,
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
         raise ValueError(f"ruff check failed:\n{result.stdout}{result.stderr}")
@@ -80,7 +82,9 @@ def check_ruff_format(project_root: Path) -> None:
     """Verify ruff format leaves every file unchanged"""
     result = subprocess.run(
         [sys.executable, "-m", "ruff", "format", "--check", "."],
-        cwd=project_root, capture_output=True, text=True
+        cwd=project_root,
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
         raise ValueError(f"ruff format --check failed:\n{result.stdout}{result.stderr}")

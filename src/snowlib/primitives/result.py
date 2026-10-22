@@ -1,4 +1,5 @@
 """A unified, simplified interface for Snowflake query results"""
+
 import logging
 import warnings
 from collections.abc import Generator
@@ -9,6 +10,7 @@ import pandas as pd
 
 try:
     import pyarrow as pa
+
     HAS_PYARROW = True
 except ImportError:
     pa = None  # type: ignore
@@ -21,29 +23,30 @@ logger = logging.getLogger(__name__)
 @dataclass
 class QueryResult:
     """A unified, simplified interface for Snowflake query results"""
+
     _cursor: Any
     _use_arrow: bool = field(default=True, repr=False)
-    
+
     @property
     def query_id(self) -> str:
         """The Snowflake query ID (sfqid)"""
         return self._cursor.sfqid
-    
+
     @property
     def rowcount(self) -> int:
         """The number of rows affected or returned"""
         return self._cursor.rowcount if self._cursor.rowcount is not None else -1
-    
+
     @property
     def sql(self) -> str:
         """The SQL statement that was executed"""
         return self._cursor.query
-    
+
     @property
     def description(self) -> Optional[list[tuple]]:
         """A description of the result columns"""
         return self._cursor.description
-    
+
     def fetch_one(self) -> Optional[tuple[Any, ...]]:
         """Fetch the next row of a query result set"""
         return self._cursor.fetchone()
@@ -61,13 +64,15 @@ class QueryResult:
             df = pd.DataFrame(rows, columns=columns)
         else:
             df = pd.DataFrame()
-        
+
         if lowercase_columns and (not df.empty or len(df.columns) > 0):
             df.columns = df.columns.str.lower()
-        
+
         return df
 
-    def fetch_batches(self, lowercase_columns: bool = True) -> Generator[pd.DataFrame, None, None]:
+    def fetch_batches(
+        self, lowercase_columns: bool = True
+    ) -> Generator[pd.DataFrame, None, None]:
         """Fetch results in batches of DataFrames with optional column casing"""
         if HAS_PYARROW and self._use_arrow and pa is not None:
             try:
@@ -93,7 +98,7 @@ class QueryResult:
                         UserWarning,
                         stacklevel=2,
                     )
-        
+
         # Fallback: fetch all at once using native types
         df = self._fetch_native_df(lowercase_columns=lowercase_columns)
         if not df.empty:
@@ -125,12 +130,9 @@ class QueryResult:
                         UserWarning,
                         stacklevel=2,
                     )
-        
+
         return self._fetch_native_df(lowercase_columns=lowercase_columns)
-    
+
     def __repr__(self) -> str:
         """String representation"""
-        return (
-            f"QueryResult(query_id='{self.query_id}', "
-            f"rowcount={self.rowcount})"
-        )
+        return f"QueryResult(query_id='{self.query_id}', rowcount={self.rowcount})"

@@ -3,6 +3,7 @@
 These tests mock the underlying primitives to test the logic of the
 Snowflake object model without requiring a live connection.
 """
+
 import warnings
 from unittest.mock import MagicMock, patch
 
@@ -33,15 +34,17 @@ class TestDatabaseModel:
     @patch("snowlib.models.base.show.Show")
     def test_database_exists(self, mock_show_class, mock_ctx):
         db = Database("TEST_DB", context=mock_ctx)
-        
+
         # Setup mock Show instance
         mock_show_instance = MagicMock()
         mock_show_instance.exists.return_value = True
         mock_show_class.return_value = mock_show_instance
-        
+
         assert db.exists() is True
         mock_show_class.assert_called_once_with(mock_ctx)
-        mock_show_instance.exists.assert_called_once_with(Database, "TEST_DB", container=None)
+        mock_show_instance.exists.assert_called_once_with(
+            Database, "TEST_DB", container=None
+        )
 
     @patch("snowlib.models.database.Container._show_children")
     def test_database_schemas(self, mock_show_children, mock_ctx):
@@ -77,12 +80,12 @@ class TestSchemaModel:
     @patch("snowlib.models.base.show.Show")
     def test_schema_exists(self, mock_show_class, mock_ctx):
         schema = Schema("TEST_DB", "PUBLIC", context=mock_ctx)
-        
+
         # Setup mock Show instance
         mock_show_instance = MagicMock()
         mock_show_instance.exists.return_value = False
         mock_show_class.return_value = mock_show_instance
-        
+
         assert schema.exists() is False
         mock_show_class.assert_called_once_with(mock_ctx)
         mock_show_instance.exists.assert_called_once()
@@ -99,14 +102,14 @@ class TestSchemaModel:
         assert tables[0].schema.name == "PUBLIC"
         assert tables[0].database.name == "TEST_DB"
         mock_show_children.assert_called_once_with(Table)
-    
+
     def test_schema_from_name_fully_qualified(self, mock_ctx):
         """Schema.from_name() with DB.SCHEMA format"""
         schema = Schema.from_name("TEST_DB.PUBLIC", mock_ctx)
         assert schema.name == "PUBLIC"
         assert schema.database.name == "TEST_DB"
         assert schema.fqn == "TEST_DB.PUBLIC"
-    
+
     def test_schema_from_name_with_context_database(self, mock_ctx):
         """Schema.from_name() with SCHEMA format using context database"""
         mock_ctx.current_database = "CONTEXT_DB"
@@ -114,13 +117,13 @@ class TestSchemaModel:
         assert schema.name == "PUBLIC"
         assert schema.database.name == "CONTEXT_DB"
         assert schema.fqn == "CONTEXT_DB.PUBLIC"
-    
+
     def test_schema_from_name_requires_database(self, mock_ctx):
         """Schema.from_name() raises error when database cannot be resolved"""
         mock_ctx.current_database = None
         with pytest.raises(ValueError, match="no database in context"):
             Schema.from_name("PUBLIC", mock_ctx)
-    
+
     def test_schema_from_name_rejects_invalid_format(self, mock_ctx):
         """Schema.from_name() rejects invalid formats"""
         with pytest.raises(ValueError, match="Invalid schema name"):
@@ -142,9 +145,9 @@ class TestTableModel:
         import pandas as pd
 
         from snowlib.primitives.result import QueryResult
-        
+
         table = Table("DB", "SCHEMA", "TABLE", context=mock_ctx)
-        
+
         # Setup mock Executor and QueryResult
         mock_executor = MagicMock()
         mock_result = MagicMock(spec=QueryResult)
@@ -152,10 +155,10 @@ class TestTableModel:
         mock_result.to_df.return_value = test_df
         mock_executor.run.return_value = mock_result
         mock_executor_class.return_value = mock_executor
-        
+
         # Call table.read()
         df = table.read(limit=10)
-        
+
         # Assertions
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 2
@@ -185,13 +188,13 @@ class TestTableTypeMismatchWarning:
         mock_show_instance = MagicMock()
         mock_show_instance.exists.return_value = True
         mock_show_class.return_value = mock_show_instance
-        
+
         table = Table("DB", "SCHEMA", "MY_TABLE", context=mock_ctx)
-        
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = table.exists()
-            
+
             assert result is True
             assert len(w) == 0
 
@@ -199,7 +202,7 @@ class TestTableTypeMismatchWarning:
     def test_warning_when_table_is_actually_view(self, mock_show_class, mock_ctx):
         """Warning when Table doesn't exist but View does"""
         mock_show_instance = MagicMock()
-        
+
         def exists_side_effect(cls, name, container=None):
             # Table doesn't exist, but View does
             if cls == Table:
@@ -207,16 +210,16 @@ class TestTableTypeMismatchWarning:
             if cls == View:
                 return True
             return False
-        
+
         mock_show_instance.exists.side_effect = exists_side_effect
         mock_show_class.return_value = mock_show_instance
-        
+
         table = Table("DB", "SCHEMA", "MY_VIEW", context=mock_ctx)
-        
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = table.exists()
-            
+
             assert result is False
             assert len(w) == 1
             assert "View" in str(w[0].message)
@@ -226,7 +229,7 @@ class TestTableTypeMismatchWarning:
     def test_warning_when_view_is_actually_table(self, mock_show_class, mock_ctx):
         """Warning when View doesn't exist but Table does"""
         mock_show_instance = MagicMock()
-        
+
         def exists_side_effect(cls, name, container=None):
             # View doesn't exist, but Table does
             if cls == View:
@@ -234,32 +237,34 @@ class TestTableTypeMismatchWarning:
             if cls == Table:
                 return True
             return False
-        
+
         mock_show_instance.exists.side_effect = exists_side_effect
         mock_show_class.return_value = mock_show_instance
-        
+
         view = View("DB", "SCHEMA", "MY_TABLE", context=mock_ctx)
-        
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = view.exists()
-            
+
             assert result is False
             assert len(w) == 1
             assert "Table" in str(w[0].message)
 
     @patch("snowlib.models.base.show.Show")
-    def test_no_warning_when_object_doesnt_exist_anywhere(self, mock_show_class, mock_ctx):
+    def test_no_warning_when_object_doesnt_exist_anywhere(
+        self, mock_show_class, mock_ctx
+    ):
         """No warning when object doesn't exist as any type"""
         mock_show_instance = MagicMock()
         mock_show_instance.exists.return_value = False
         mock_show_class.return_value = mock_show_instance
-        
+
         table = Table("DB", "SCHEMA", "NONEXISTENT", context=mock_ctx)
-        
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = table.exists()
-            
+
             assert result is False
             assert len(w) == 0

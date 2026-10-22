@@ -27,7 +27,7 @@ class SnowflakeContext:
             raise ValueError(
                 "SnowflakeContext: provide either 'profile' or 'connection', not both"
             )
-        
+
         self._profile = profile
         self._connection = connection
         self._cursor = cursor
@@ -57,7 +57,7 @@ class SnowflakeContext:
     @property
     def cursor(self) -> Any:
         """Get Snowflake cursor, creating if needed
-        
+
         Note: This cached cursor is used for connection validation and internal operations.
         For query execution, use new_cursor() to avoid thread-safety issues.
         """
@@ -68,12 +68,12 @@ class SnowflakeContext:
 
     def new_cursor(self) -> Any:
         """Create a new cursor for query execution.
-        
+
         Each query should use its own cursor to ensure thread-safety.
         The cursor holds result state internally, so sharing a cursor between
         concurrent queries causes race conditions where one query's results
         can be overwritten by another before being fetched.
-        
+
         Creating multiple cursors from the same connection does not trigger
         re-authentication - the connection holds auth state, not the cursor.
         """
@@ -83,9 +83,9 @@ class SnowflakeContext:
         """Validate that declared connection values match actual session values"""
         if self._connector is None:
             return
-        
+
         cfg = self._connector._cfg
-        
+
         # Map config keys to (CURRENT_*() query, friendly name)
         validations = [
             ("warehouse", "SELECT CURRENT_WAREHOUSE()", "warehouse"),
@@ -93,7 +93,7 @@ class SnowflakeContext:
             ("database", "SELECT CURRENT_DATABASE()", "database"),
             ("schema", "SELECT CURRENT_SCHEMA()", "schema"),
         ]
-        
+
         for config_key, query, friendly_name in validations:
             declared = cfg.get(config_key)
             if declared:
@@ -101,7 +101,7 @@ class SnowflakeContext:
                 self._cursor.execute(query)
                 result = self._cursor.fetchone()
                 actual = result[0] if result and result[0] else None
-                
+
                 if actual is None:
                     warnings.warn(
                         f"Declared {friendly_name} '{declared}' is not active in session. The {friendly_name} may be suspended or inaccessible.",
@@ -136,37 +136,37 @@ class SnowflakeContext:
         """Get current database from session context"""
         result = self.cursor.execute("SELECT CURRENT_DATABASE()").fetchone()
         return str(result[0]) if result and result[0] else ""
-    
+
     @property
     def current_schema(self) -> str:
         """Get current schema from session context"""
         result = self.cursor.execute("SELECT CURRENT_SCHEMA()").fetchone()
         return str(result[0]) if result and result[0] else ""
-    
+
     @property
     def current_warehouse(self) -> str:
         """Get current warehouse from session context"""
         result = self.cursor.execute("SELECT CURRENT_WAREHOUSE()").fetchone()
         return str(result[0]) if result and result[0] else ""
-    
+
     @property
     def current_role(self) -> str:
         """Get current role from session context"""
         result = self.cursor.execute("SELECT CURRENT_ROLE()").fetchone()
         return str(result[0]) if result and result[0] else ""
-    
+
     @property
     def current_user(self) -> str:
         """Get current user from session context"""
         result = self.cursor.execute("SELECT CURRENT_USER()").fetchone()
         return str(result[0]) if result and result[0] else ""
-    
+
     @property
     def current_account(self) -> str:
         """Get current account identifier from session context"""
         result = self.cursor.execute("SELECT CURRENT_ACCOUNT()").fetchone()
         return str(result[0]) if result and result[0] else ""
-    
+
     @property
     def current_region(self) -> str:
         """Get current region from session context"""

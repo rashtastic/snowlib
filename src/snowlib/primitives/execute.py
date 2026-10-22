@@ -14,7 +14,7 @@ from .result import QueryResult
 
 class Executor:
     """Execute SQL queries with various strategies"""
-    
+
     def __init__(self, context: Union[str, SnowflakeContext], **overrides: Any):
         """Initialize with a context profile name or SnowflakeContext instance"""
         if isinstance(context, str):
@@ -23,13 +23,13 @@ class Executor:
             self.context = context
 
     def run(
-        self, 
-        sql: str, 
+        self,
+        sql: str,
         bindings: Optional[Sequence[Any]] = None,
         arrow: bool = True,
     ) -> QueryResult:
         """Execute SQL and return a QueryResult
-        
+
         Each execution uses a fresh cursor to ensure thread-safety.
         """
         cursor = self.context.new_cursor()
@@ -40,12 +40,10 @@ class Executor:
         return QueryResult(_cursor=cursor, _use_arrow=arrow)
 
     def run_async(
-        self, 
-        sql: str, 
-        bindings: Optional[Sequence[Any]] = None
+        self, sql: str, bindings: Optional[Sequence[Any]] = None
     ) -> AsyncQuery:
         """Execute SQL asynchronously and return an AsyncQuery
-        
+
         Each execution uses a fresh cursor to ensure thread-safety.
         """
         cursor = self.context.new_cursor()
@@ -66,16 +64,14 @@ class Executor:
         for cursor_result in self.context.connection.execute_stream(StringIO(sql)):
             results.append(QueryResult(_cursor=cursor_result))
         return results
-    
+
     def run_with_result_scan(
-        self,
-        sql: str,
-        bindings: Optional[Sequence[Any]] = None
+        self, sql: str, bindings: Optional[Sequence[Any]] = None
     ) -> QueryResult:
         """Execute SQL and fetch results via RESULT_SCAN"""
         result = self.run(sql, bindings=bindings)
         sfqid = result.query_id
-        
+
         return self.run("SELECT * FROM TABLE(RESULT_SCAN(%s))", bindings=[sfqid])
 
 
@@ -115,4 +111,6 @@ def query(
     **overrides: Any,
 ) -> pd.DataFrame:
     """Execute SQL and return results as a DataFrame"""
-    return Executor(context, **overrides).run(sql, bindings=bindings, arrow=arrow).to_df()
+    return (
+        Executor(context, **overrides).run(sql, bindings=bindings, arrow=arrow).to_df()
+    )

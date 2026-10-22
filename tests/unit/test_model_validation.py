@@ -26,17 +26,23 @@ class TestModelIdentifierValidation:
 
     def test_database_invalid_name_raises_error(self, ctx):
         """Verify Database constructor rejects invalid unquoted identifiers."""
-        with pytest.raises(ValueError, match="Invalid identifier at position 0: 'invalid-db-name'"):
+        with pytest.raises(
+            ValueError, match="Invalid identifier at position 0: 'invalid-db-name'"
+        ):
             Database("invalid-db-name", ctx)
 
     def test_schema_invalid_name_raises_error(self, ctx):
         """Verify Schema constructor rejects invalid unquoted identifiers."""
-        with pytest.raises(ValueError, match="Invalid identifier at position 1: 'invalid-schema-name'"):
+        with pytest.raises(
+            ValueError, match="Invalid identifier at position 1: 'invalid-schema-name'"
+        ):
             Schema(TEST_DB, "invalid-schema-name", ctx)
 
     def test_table_invalid_name_raises_error(self, ctx):
         """Verify Table constructor rejects invalid unquoted identifiers."""
-        with pytest.raises(ValueError, match="Invalid identifier at position 2: 'invalid-table-name'"):
+        with pytest.raises(
+            ValueError, match="Invalid identifier at position 2: 'invalid-table-name'"
+        ):
             Table(TEST_DB, TEST_SCHEMA, "invalid-table-name", ctx)
 
     def test_valid_identifiers_work_correctly(self, ctx):
@@ -47,4 +53,3 @@ class TestModelIdentifierValidation:
             Table("VALID_DB", "VALID_SCHEMA", "VALID_TABLE", ctx)
         except ValueError:
             pytest.fail("Valid identifiers were incorrectly rejected.")
-

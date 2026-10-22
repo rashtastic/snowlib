@@ -140,10 +140,12 @@ class TestPrepareJsonColumns:
     """Tests for prepare_json_columns function"""
 
     def test_detects_and_serializes_json_column(self):
-        df = pd.DataFrame({
-            "id": [1, 2, 3],
-            "data": [{"a": 1}, {"b": 2}, {"c": 3}],
-        })
+        df = pd.DataFrame(
+            {
+                "id": [1, 2, 3],
+                "data": [{"a": 1}, {"b": 2}, {"c": 3}],
+            }
+        )
         result_df, json_cols = prepare_json_columns(df)
 
         assert json_cols == ["data"]
@@ -151,10 +153,12 @@ class TestPrepareJsonColumns:
         assert result_df["id"].tolist() == [1, 2, 3]
 
     def test_leaves_non_json_columns_unchanged(self):
-        df = pd.DataFrame({
-            "id": [1, 2, 3],
-            "name": ["a", "b", "c"],
-        })
+        df = pd.DataFrame(
+            {
+                "id": [1, 2, 3],
+                "name": ["a", "b", "c"],
+            }
+        )
         result_df, json_cols = prepare_json_columns(df)
 
         assert json_cols == []
@@ -162,19 +166,23 @@ class TestPrepareJsonColumns:
         assert result_df["name"].tolist() == ["a", "b", "c"]
 
     def test_handles_multiple_json_columns(self):
-        df = pd.DataFrame({
-            "id": [1, 2],
-            "payload": [{"x": 1}, {"x": 2}],
-            "metadata": [["tag1"], ["tag2"]],
-        })
+        df = pd.DataFrame(
+            {
+                "id": [1, 2],
+                "payload": [{"x": 1}, {"x": 2}],
+                "metadata": [["tag1"], ["tag2"]],
+            }
+        )
         result_df, json_cols = prepare_json_columns(df)
 
         assert set(json_cols) == {"payload", "metadata"}
 
     def test_does_not_modify_original_dataframe(self):
-        df = pd.DataFrame({
-            "data": [{"a": 1}, {"b": 2}],
-        })
+        df = pd.DataFrame(
+            {
+                "data": [{"a": 1}, {"b": 2}],
+            }
+        )
         original_values = df["data"].tolist()
 
         prepare_json_columns(df)
@@ -189,10 +197,12 @@ class TestPrepareJsonColumns:
         assert len(result_df) == 0
 
     def test_preserves_nulls_in_json_columns(self):
-        df = pd.DataFrame({
-            "id": [1, 2, 3],
-            "data": [{"a": 1}, None, {"c": 3}],
-        })
+        df = pd.DataFrame(
+            {
+                "id": [1, 2, 3],
+                "data": [{"a": 1}, None, {"c": 3}],
+            }
+        )
         result_df, json_cols = prepare_json_columns(df)
 
         assert json_cols == ["data"]

@@ -11,11 +11,13 @@ from .base import BaseConnector
 
 class SnowflakeConnector(BaseConnector):
     """Snowflake connection manager with TOML profile support and context manager protocol"""
-    
-    def __init__(self, profile: str, config_path: Optional[str] = None, **kwargs: Any) -> None:
+
+    def __init__(
+        self, profile: str, config_path: Optional[str] = None, **kwargs: Any
+    ) -> None:
         """Initialize the connector with a configuration profile and optional parameter overrides"""
         super().__init__(profile, config_path=config_path, **kwargs)
-        
+
         self._connection: Optional[SnowflakeConnection] = None
         self._cursor: Optional[SnowflakeCursor] = None
 
@@ -24,7 +26,7 @@ class SnowflakeConnector(BaseConnector):
         if self._connection is None:
             self._connection = snowflake.connector.connect(**self._cfg)  # type: ignore[misc]
             self._cursor = self._connection.cursor()
-        
+
         assert self._connection is not None
         assert self._cursor is not None
         return self._connection, self._cursor
@@ -42,16 +44,11 @@ class SnowflakeConnector(BaseConnector):
         """Establish connection and return connection and cursor for context manager"""
         return self.connect()
 
-    def __exit__(
-        self, 
-        exc_type: Any, 
-        exc_val: Any, 
-        exc_tb: Any
-    ) -> Literal[False]:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Literal[False]:
         """Close connection and propagate any exceptions"""
         self.close()
         return False
-    
+
     def __repr__(self) -> str:
         """Return string representation showing profile name and connection status"""
         status = "connected" if self._connection else "not connected"
@@ -60,19 +57,21 @@ class SnowflakeConnector(BaseConnector):
 
 class SnowparkConnector(BaseConnector):
     """Snowpark session manager with TOML profile support"""
-    
-    def __init__(self, profile: str, config_path: Optional[str] = None, **kwargs: Any) -> None:
+
+    def __init__(
+        self, profile: str, config_path: Optional[str] = None, **kwargs: Any
+    ) -> None:
         """Initialize the Snowpark connector with a configuration profile and optional parameter overrides"""
         try:
             from snowflake.snowpark import Session
         except ImportError:
             raise ImportError(
-                "Snowpark is not installed. " +
-                "Install it with: pip install snowflake-snowpark-python"
+                "Snowpark is not installed. "
+                + "Install it with: pip install snowflake-snowpark-python"
             )
-        
+
         super().__init__(profile, config_path=config_path, **kwargs)
-        
+
         self._session: Optional[Any] = None
         self._Session = Session
 
@@ -81,13 +80,13 @@ class SnowparkConnector(BaseConnector):
         if self._session is None:
             self._session = self._Session.builder.configs(self._cfg).create()
         return self._session
-    
+
     def close(self) -> None:
         """Close the Snowpark session"""
         if self._session:
             self._session.close()
             self._session = None
-    
+
     def __repr__(self) -> str:
         """Return string representation showing profile name and session status"""
         status = "active" if self._session else "inactive"
