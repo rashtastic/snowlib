@@ -2,6 +2,8 @@
 
 Changes to how snowlib connects and reads object metadata, most of them taken from what snowman (`D:\pyrash\snowman`) builds around snowlib today. Each item is a separate commit with tests, and the whole plan lands before the next version bump. The two fixes come first.
 
+**Status, 2026-10-22: all seven items implemented**, one commit each (`9dccf5d`, `3f7aa54`, `e00f3f2`, `0d53bd7`, `e080259`, `e60327c`, `d28cc0f`), plus `fb0822d`, which fixes the same class-name bug as item 1 in `Show`'s `IN` clause. Unit tests pass in every tox environment. Nothing has been run against a live account: SHOW paging, GET_DDL types and `information_schema.columns` follow Snowflake's documentation, and the connection fix was checked against real connectors 4.8 and 5.1 by connecting to a refusing local port.
+
 ## 1. Fix `describe()` for multi-word object types
 
 `SnowflakeObject.describe()` (`models/base/core.py:81`) builds `DESCRIBE <class name upper>`, which is invalid for classes whose names are two words: `DynamicTable` produces `DESCRIBE DYNAMICTABLE` and `MaterializedView` produces `DESCRIBE MATERIALIZEDVIEW`. `TableLike.drop()` already derives the keyword from `SHOW_PLURAL` (`SHOW_PLURAL.rstrip("S")`), so `describe()` should do the same.
