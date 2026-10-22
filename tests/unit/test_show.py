@@ -153,6 +153,67 @@ def test_container_keyword(make_container, expected, mock_ctx):
     assert f"{expected} IDENTIFIER(%s)" in calls[0][0]
 
 
+class TestRows:
+    """Show.rows: any listed kind, as a DataFrame."""
+
+    @pytest.mark.parametrize(
+        ("kind", "sql"),
+        [
+            ("tasks", "SHOW TASKS IN SCHEMA IDENTIFIER(%s)"),
+            ("user functions", "SHOW USER FUNCTIONS IN SCHEMA IDENTIFIER(%s)"),
+            ("User  Procedures", "SHOW USER PROCEDURES IN SCHEMA IDENTIFIER(%s)"),
+            ("dynamic tables", "SHOW DYNAMIC TABLES IN SCHEMA IDENTIFIER(%s) LIMIT %s"),
+        ],
+    )
+    def test_kind_sql(self, kind, sql, mock_ctx):
+        show, calls, patcher = show_with(["A", "B"], mock_ctx)
+        try:
+            df = show.rows(kind, container=Schema("DB", "SCH", context=mock_ctx))
+        finally:
+            patcher.stop()
+        assert isinstance(df, pd.DataFrame)
+        assert df["name"].tolist() == ["A", "B"]
+        assert calls[0][0] == sql
+        assert calls[0][1][0] == "DB.SCH"
+
+    def test_tasks_warn_at_the_limit(self, mock_ctx):
+        """TASKS is not a verified LIMIT ... FROM kind, so it warns instead."""
+        names = [f"T{i:05d}" for i in range(SHOW_ROW_LIMIT)]
+        show, _calls, patcher = show_with(names, mock_ctx)
+        try:
+            with pytest.warns(UserWarning, match="likely incomplete"):
+                show.rows("tasks", container=Schema("DB", "SCH", context=mock_ctx))
+        finally:
+            patcher.stop()
+
+    def test_empty_result(self, mock_ctx):
+        show, _calls, patcher = show_with([], mock_ctx)
+        try:
+            df = show.rows("tasks")
+        finally:
+            patcher.stop()
+        assert df.empty
+
+    @pytest.mark.parametrize(
+        "kind", ["grants", "tables; drop table x", "TABLES IN ACCOUNT", ""]
+    )
+    def test_unknown_kind_is_rejected(self, kind, mock_ctx):
+        with pytest.raises(ValueError, match="Unsupported SHOW kind"):
+            Show(mock_ctx).rows(kind)
+
+    def test_session_show(self, mock_ctx):
+        from snowlib.session import Session
+
+        _show, calls, patcher = show_with(["A"], mock_ctx)
+        try:
+            session = Session(context=mock_ctx)
+            df = session.show("tasks", in_=session.database("DB").schema("SCH"))
+        finally:
+            patcher.stop()
+        assert df["name"].tolist() == ["A"]
+        assert calls[0][0] == "SHOW TASKS IN SCHEMA IDENTIFIER(%s)"
+
+
 def test_unpaged_kind_below_the_limit_is_quiet(mock_ctx):
     show, _calls, patcher = show_with(["A", "B"], mock_ctx)
     try:

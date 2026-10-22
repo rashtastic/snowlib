@@ -3,6 +3,8 @@
 import warnings
 from typing import TYPE_CHECKING, Any, Optional
 
+import pandas as pd
+
 from snowlib.context import SnowflakeContext
 from snowlib.primitives import Executor
 from snowlib.utils.identifiers import is_valid_identifier
@@ -25,6 +27,39 @@ PAGED_KINDS: dict[str, Optional[str]] = {
     "VIEWS": "SCHEMA",
     "DYNAMIC TABLES": "SCHEMA",
 }
+
+# Kinds Show.rows accepts. The kind is part of the SQL text, so it is checked
+# against this list rather than passed through.
+SHOW_KINDS = frozenset(
+    {
+        "ALERTS",
+        "COLUMNS",
+        "DATABASES",
+        "DYNAMIC TABLES",
+        "EVENT TABLES",
+        "EXTERNAL FUNCTIONS",
+        "EXTERNAL TABLES",
+        "FILE FORMATS",
+        "FUNCTIONS",
+        "HYBRID TABLES",
+        "ICEBERG TABLES",
+        "MATERIALIZED VIEWS",
+        "PIPES",
+        "PROCEDURES",
+        "SCHEMAS",
+        "SEMANTIC VIEWS",
+        "SEQUENCES",
+        "STAGES",
+        "STREAMLITS",
+        "STREAMS",
+        "TABLES",
+        "TAGS",
+        "TASKS",
+        "USER FUNCTIONS",
+        "USER PROCEDURES",
+        "VIEWS",
+    }
+)
 
 
 class Show:
@@ -53,7 +88,42 @@ class Show:
         Without a limit, kinds that support it are paged past SHOW's
         10,000-row maximum; kinds that do not warn when they reach it.
         """
-        kind = object_class.SHOW_PLURAL
+        return self._records(
+            object_class.SHOW_PLURAL,
+            object_class.SHOW_NAME_COLUMN,
+            container=container,
+            like=like,
+            starts_with=starts_with,
+            limit=limit,
+        )
+
+    def rows(
+        self,
+        kind: str,
+        container: Optional["SnowflakeObject"] = None,
+        like: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """SHOW any listed object kind, e.g. "user functions" or "tasks", as a DataFrame."""
+        normalized = " ".join(kind.upper().split())
+        if normalized not in SHOW_KINDS:
+            raise ValueError(
+                f"Unsupported SHOW kind {kind!r}. Supported: "
+                + ", ".join(sorted(SHOW_KINDS))
+            )
+        return pd.DataFrame(
+            self._records(normalized, "name", container=container, like=like)
+        )
+
+    def _records(
+        self,
+        kind: str,
+        name_col: str,
+        container: Optional["SnowflakeObject"] = None,
+        like: Optional[str] = None,
+        starts_with: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> list[dict[str, Any]]:
+        """Run SHOW <kind>, paging or warning at the row maximum."""
         # IN takes DATABASE, SCHEMA, TABLE or VIEW: a dynamic table's columns are
         # shown IN TABLE and a materialized view's IN VIEW.
         container_type = container._object_keyword().split()[-1] if container else None
@@ -81,7 +151,6 @@ class Show:
             return page(limit, None)
 
         if kind in PAGED_KINDS and PAGED_KINDS[kind] == container_type:
-            name_col = object_class.SHOW_NAME_COLUMN
             records = page(SHOW_ROW_LIMIT, None)
             last_page = records
             while len(last_page) == SHOW_ROW_LIMIT:

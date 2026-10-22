@@ -11,10 +11,12 @@ from snowlib.models import (
     DynamicTable,
     MaterializedView,
     Schema,
+    Show,
     Stage,
     Table,
     View,
 )
+from snowlib.models.base import SnowflakeObject
 from snowlib.primitives import AsyncQuery, Executor, QueryResult
 
 
@@ -119,6 +121,15 @@ class Session:
     def execute_block(self, sql: str) -> list[QueryResult]:
         """Execute a block of SQL statements and return a list of QueryResults"""
         return Executor(self._context).run_block(sql)
+
+    def show(
+        self,
+        kind: str,
+        in_: Optional[SnowflakeObject] = None,
+        like: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """SHOW <kind> [IN <object>] as a DataFrame: session.show("tasks", in_=schema)"""
+        return Show(self._context).rows(kind, container=in_, like=like)
 
     # Model factories (bound models with from_name support)
 
