@@ -337,7 +337,8 @@ class Table(TableLike):
                 )
                 if json_columns:
                     logger.info(
-                        f"Loaded {rows_loaded} row(s) via COPY INTO with {len(json_columns)} VARIANT column(s): {json_columns}"
+                        f"Loaded {rows_loaded} row(s) via COPY INTO "
+                        + f"with {len(json_columns)} VARIANT column(s): {json_columns}"
                     )
                 else:
                     logger.info(f"Loaded {rows_loaded} row(s) via COPY INTO")

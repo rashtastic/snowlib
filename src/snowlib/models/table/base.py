@@ -40,7 +40,9 @@ class TableLike(SchemaChild, Container):
                 continue
             if show.exists(alt_class, self.name, container=self.container):
                 warnings.warn(
-                    f"'{self.fqn}' does not exist as a {self.__class__.__name__}, but exists as a {alt_class.__name__}. Consider using session.{alt_class.__name__.lower()}.from_name() instead.",
+                    f"'{self.fqn}' does not exist as a {self.__class__.__name__}, "
+                    + f"but exists as a {alt_class.__name__}. "
+                    + f"Consider using session.{alt_class.__name__.lower()}.from_name() instead.",
                     UserWarning,
                     stacklevel=2,
                 )

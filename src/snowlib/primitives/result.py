@@ -83,7 +83,9 @@ class QueryResult:
                 return
             except pa.ArrowInvalid as e:
                 warnings.warn(
-                    f"Arrow batch fetch failed due to schema mismatch (often caused by extreme dates like 9999-01-01). Falling back to native fetch. Original error: {e}",
+                    "Arrow batch fetch failed due to schema mismatch "
+                    + "(often caused by extreme dates like 9999-01-01). "
+                    + f"Falling back to native fetch. Original error: {e}",
                     UserWarning,
                     stacklevel=2,
                 )
@@ -114,7 +116,9 @@ class QueryResult:
                 return df
             except pa.ArrowInvalid as e:
                 warnings.warn(
-                    f"Arrow fetch failed due to schema mismatch (often caused by extreme dates like 9999-01-01). Falling back to native fetch. Original error: {e}",
+                    "Arrow fetch failed due to schema mismatch "
+                    + "(often caused by extreme dates like 9999-01-01). "
+                    + f"Falling back to native fetch. Original error: {e}",
                     UserWarning,
                     stacklevel=2,
                 )

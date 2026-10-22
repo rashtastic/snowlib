@@ -104,7 +104,8 @@ class SnowflakeContext:
 
                 if actual is None:
                     warnings.warn(
-                        f"Declared {friendly_name} '{declared}' is not active in session. The {friendly_name} may be suspended or inaccessible.",
+                        f"Declared {friendly_name} '{declared}' is not active in session. "
+                        + f"The {friendly_name} may be suspended or inaccessible.",
                         UserWarning,
                         stacklevel=4,
                     )

@@ -119,6 +119,16 @@ select = [
     "SIM", # simplifications
     "PLE", # pylint errors
 ]
+ignore = [
+    # Measures the ternary against max-line-length below, so it proposes
+    # one-liners the formatter then splits over several lines at 88.
+    "SIM108",
+]
+
+# The formatter holds code to 88 columns but cannot shorten a string, and the
+# code style is one-line docstrings. E501 is the ceiling past that.
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120
 
 [tool.ruff.lint.per-file-ignores]
 # Nested `with` keeps pytest.raises and patch scopes readable; merged, these

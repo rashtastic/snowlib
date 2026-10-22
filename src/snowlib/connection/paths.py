@@ -12,7 +12,7 @@ except ImportError:
 
 
 def _get_config_directory() -> Path:
-    """Get the configuration directory for snowlib using SNOWLIB_CONFIG_DIR environment variable or ~/.snowlib dotfile directory"""
+    """Get the snowlib configuration directory from SNOWLIB_CONFIG_DIR or ~/.snowlib"""
     env_config_dir = os.getenv("SNOWLIB_CONFIG_DIR")
     if env_config_dir:
         return Path(env_config_dir)
