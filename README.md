@@ -18,7 +18,7 @@ pip install snowlib[excel]
 
 | Package | 3.14 | 3.13-3.10 | 3.9* |
 |---------|:----:|:---------:|:----:|
-| **snowflake-connector-python** | ≥3.17.0 | ≥3.17.0, <4.0.0 | ≥3.17.0, <4.0.0 |
+| **snowflake-connector-python** | ≥3.17.0 | ≥3.17.0, <5.0.0 | ≥3.17.0, <5.0.0 |
 | **snowflake-snowpark-python** | - | ≥1.9.0 | ≥1.9.0 |
 | **sqlalchemy** | ≥2.0 | ≥2.0 | ≥2.0 |
 | **snowflake-sqlalchemy** | ≥1.6.0 | ≥1.6.0 | ≥1.6.0 |
