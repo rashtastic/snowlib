@@ -122,7 +122,7 @@ def infer_snowflake_schema(
     return schema
 
 
-def get_table_schema(table: 'Table') -> list[ColumnSchema]:
+def get_table_schema(table: Table) -> list[ColumnSchema]:
     """Get column schema from an existing Snowflake table.
     
     Args:
@@ -148,7 +148,7 @@ def get_table_schema(table: 'Table') -> list[ColumnSchema]:
 
 
 def resolve_target_schema(
-    table: 'Table',
+    table: Table,
     df: pd.DataFrame,
     variant_columns: list[str] | None = None,
 ) -> list[ColumnSchema]:

@@ -1,10 +1,11 @@
 """Unit tests for Session class"""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from snowlib.session import Session, create_session, BoundModel
+import pytest
+
 from snowlib.context import SnowflakeContext
+from snowlib.session import BoundModel, Session, create_session
 
 
 class TestBoundModel:

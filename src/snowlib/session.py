@@ -1,12 +1,21 @@
 """Context-bound session for snowlib operations"""
 
-from typing import Any, Optional, Sequence, Type, TypeVar, Generic, Protocol
+from collections.abc import Sequence
+from typing import Any, Generic, Optional, Protocol, Type, TypeVar
 
 import pandas as pd
 
 from snowlib.context import SnowflakeContext
-from snowlib.primitives import Executor, QueryResult, AsyncQuery
-from snowlib.models import Database, Schema, Table, View, MaterializedView, DynamicTable, Stage
+from snowlib.models import (
+    Database,
+    DynamicTable,
+    MaterializedView,
+    Schema,
+    Stage,
+    Table,
+    View,
+)
+from snowlib.primitives import AsyncQuery, Executor, QueryResult
 
 
 class HasFromName(Protocol):

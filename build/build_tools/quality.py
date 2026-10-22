@@ -2,8 +2,9 @@
 
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
+
+import tomllib
 
 
 def check_pyproject_complete(project_root: Path) -> None:

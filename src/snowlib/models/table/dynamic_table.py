@@ -1,6 +1,6 @@
 """DynamicTable class - automated query-based table"""
 
-from typing import Optional, ClassVar
+from typing import ClassVar, Optional
 
 from snowlib.models.table.base import TableLike
 

@@ -1,12 +1,11 @@
 """Execute Snowflake SHOW commands with safe parameter binding."""
 
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from snowlib.context import SnowflakeContext
 from snowlib.primitives import Executor
-from snowlib.utils.query import SafeQuery
 from snowlib.utils.identifiers import is_valid_identifier
-
+from snowlib.utils.query import SafeQuery
 
 if TYPE_CHECKING:
     from .core import SnowflakeObject

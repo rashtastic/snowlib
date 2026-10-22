@@ -1,7 +1,7 @@
 """Core base classes for Snowflake objects"""
 
 from abc import ABC
-from typing import Any, Optional, ClassVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
 from snowlib.context import SnowflakeContext
 
@@ -18,7 +18,7 @@ class SnowflakeObject(ABC):
     def __init__(self, context: SnowflakeContext):
         """Initialize with frozen connection context"""
         self._context = context
-        self._fqn: 'FQN'
+        self._fqn: FQN
     
     @property
     def context(self) -> SnowflakeContext:
@@ -133,7 +133,7 @@ class Container(SnowflakeObject):
         """Initialize container with context."""
         super().__init__(context)
         # Lazy-initialize Show when first needed
-        self._show: 'Any | None' = None  # Any to avoid circular import
+        self._show: Any | None = None  # Any to avoid circular import
     
     @property
     def _show_instance(self) -> Any:  # Returns Show, but can't import it here

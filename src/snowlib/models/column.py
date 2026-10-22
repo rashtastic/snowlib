@@ -1,14 +1,15 @@
 """Column object class"""
 
-from typing import TYPE_CHECKING, ClassVar, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from snowlib.context import SnowflakeContext
-from .base import SnowflakeObject, FQN
+
+from .base import FQN, SnowflakeObject
 
 if TYPE_CHECKING:
-    from .table import Table
-    from .schema import Schema
     from .database import Database
+    from .schema import Schema
+    from .table import Table
 
 
 class Column(SnowflakeObject):

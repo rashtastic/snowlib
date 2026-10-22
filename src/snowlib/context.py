@@ -33,7 +33,7 @@ class SnowflakeContext:
         self._cursor = cursor
         self._config_path = config_path
         self._overrides = overrides
-        self._connector: Optional["SnowflakeConnector"] = None
+        self._connector: Optional[SnowflakeConnector] = None
         self._owns_connector = False
 
     @property
@@ -176,6 +176,6 @@ class SnowflakeContext:
     def __repr__(self) -> str:
         """String representation"""
         if self._connection is not None:
-            return f"SnowflakeContext(connection=<active>)"
+            return "SnowflakeContext(connection=<active>)"
         else:
             return f"SnowflakeContext(profile='{self._profile}')"

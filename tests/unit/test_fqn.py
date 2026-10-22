@@ -1,6 +1,7 @@
 """Test FQN class"""
 
 import pytest
+
 from snowlib.models.base.fqn import FQN
 
 

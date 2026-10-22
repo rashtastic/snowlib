@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import ClassVar, Optional, Any, cast
+from typing import Any, ClassVar, Optional, cast
 
 from snowlib.context import SnowflakeContext
 from snowlib.models.base import SchemaChild

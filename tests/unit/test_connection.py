@@ -1,7 +1,8 @@
 """Unit tests for snowlib connection module."""
 
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 
 from snowlib.connection import SnowflakeConnector, SnowparkConnector
 
@@ -335,6 +336,7 @@ database = "TEST_DB"
                 with pytest.raises(ImportError) as exc_info:
                     # Force reimport to trigger the ImportError
                     import importlib
+
                     import snowlib.connection
                     importlib.reload(snowlib.connection)
                     from snowlib.connection import SnowparkConnector as TestConnector

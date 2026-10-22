@@ -1,6 +1,7 @@
 """Tests for QueryResult wrapper class."""
 
 from unittest.mock import Mock
+
 import pandas as pd
 
 
@@ -189,8 +190,9 @@ class TestQueryResultMethods:
     
     def test_fetch_batches_yields_dataframes(self):
         """Test that fetch_batches yields DataFrame batches with lowercased columns"""
-        from snowlib.primitives.result import QueryResult
         import pandas as pd
+
+        from snowlib.primitives.result import QueryResult
         
         mock_cursor = Mock()
         batch1 = pd.DataFrame({"ID": [1, 2], "NAME": ["A", "B"]})

@@ -9,9 +9,8 @@ pytest tests/integration/test_integration.py -v -m "not integration"
 
 import pytest
 
-from snowlib import SnowflakeConnector, SnowparkConnector, load_profile, list_profiles
+from snowlib import SnowflakeConnector, SnowparkConnector, list_profiles, load_profile
 from snowlib.connection import get_default_config_path
-
 
 # Mark all tests in this module as integration tests
 pytestmark = pytest.mark.integration

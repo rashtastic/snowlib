@@ -1,7 +1,8 @@
 """Unit tests for SnowflakeContext class."""
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from snowlib.context import SnowflakeContext
 

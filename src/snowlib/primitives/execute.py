@@ -1,7 +1,8 @@
 """Execute SQL queries with safe parameter binding"""
 
+from collections.abc import Sequence
 from io import StringIO
-from typing import Any, Optional, Union, Sequence
+from typing import Any, Optional, Union
 
 import pandas as pd
 

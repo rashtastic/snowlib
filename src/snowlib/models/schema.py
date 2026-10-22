@@ -6,12 +6,13 @@ import warnings
 from typing import TYPE_CHECKING, ClassVar
 
 from snowlib.context import SnowflakeContext
-from .base import Container, FQN
+
+from .base import FQN, Container
 
 if TYPE_CHECKING:
     from .database import Database
-    from .table import Table, View
     from .stage import Stage
+    from .table import Table, View
 
 
 class Schema(Container):
@@ -33,7 +34,7 @@ class Schema(Container):
         default_database: str | None = None,
         default_schema: str | None = None,
         **kwargs: object
-    ) -> 'Schema':
+    ) -> Schema:
         """Parse qualified name and resolve missing parts from context.
         
         Args:
@@ -78,21 +79,22 @@ class Schema(Container):
             raise ValueError(msg)
     
     @property
-    def database(self) -> 'Database':
+    def database(self) -> Database:
         """Get parent database object"""
         from .database import Database
         return Database(self._database_name, self._context)
     
     @property
-    def container(self) -> 'Database':
+    def container(self) -> Database:
         """Parent container is the database"""
         return self.database
     
     @property
-    def tables(self) -> list['Table']:
+    def tables(self) -> list[Table]:
         """Get all tables in schema by querying Snowflake for current state"""
-        from .table import Table
         from snowlib.utils.identifiers import is_valid_identifier
+
+        from .table import Table
         
         results = self._show_children(Table)
         
@@ -112,10 +114,11 @@ class Schema(Container):
         return tables
     
     @property
-    def views(self) -> list['View']:
+    def views(self) -> list[View]:
         """Get all views in schema"""
-        from .table import View
         from snowlib.utils.identifiers import is_valid_identifier
+
+        from .table import View
         
         results = self._show_children(View)
         
@@ -134,17 +137,17 @@ class Schema(Container):
         
         return views
     
-    def table(self, name: str) -> 'Table':
+    def table(self, name: str) -> Table:
         """Get specific table by name without validating existence"""
         from .table import Table
         return Table(self._database_name, self._schema_name, name, self._context)
     
-    def view(self, name: str) -> 'View':
+    def view(self, name: str) -> View:
         """Get specific view by name"""
         from .table import View
         return View(self._database_name, self._schema_name, name, self._context)
     
-    def stage(self, name: str) -> 'Stage':
+    def stage(self, name: str) -> Stage:
         """Get specific stage by name"""
         from .stage import Stage
         return Stage(self._database_name, self._schema_name, name, self._context)

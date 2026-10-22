@@ -1,8 +1,9 @@
 """A unified, simplified interface for Snowflake query results"""
-from typing import Any, Generator, Optional
-from dataclasses import dataclass, field
 import logging
 import warnings
+from collections.abc import Generator
+from dataclasses import dataclass, field
+from typing import Any, Optional
 
 import pandas as pd
 

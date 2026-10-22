@@ -3,9 +3,10 @@
 Tests use mocked SnowflakeContext to avoid real Snowflake connections.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
 from io import StringIO
+from unittest.mock import Mock, patch
+
+import pytest
 
 
 @pytest.fixture
@@ -104,7 +105,7 @@ class TestExecuteBlock:
     
     def test_execute_block_returns_all_results(self, mock_context):
         """Test that execute_block returns results from all statements."""
-        from snowlib.primitives import execute_block, QueryResult
+        from snowlib.primitives import QueryResult, execute_block
         
         # Setup mock context
         mock_conn = Mock()
@@ -168,7 +169,7 @@ class TestExecuteSQLAsync:
     
     def test_execute_sql_async_returns_async_query(self, mock_context):
         """Test that execute_sql_async returns an AsyncQuery."""
-        from snowlib.primitives import execute_sql_async, AsyncQuery
+        from snowlib.primitives import AsyncQuery, execute_sql_async
         
         # Setup mock cursor (returned by new_cursor())
         mock_cur = Mock()
@@ -199,8 +200,8 @@ class TestExecuteSQLAsync:
     
     def test_execute_sql_async_with_context_object(self, mock_context):
         """Test execute_sql_async with SnowflakeContext object."""
-        from snowlib.primitives import execute_sql_async
         from snowlib.context import SnowflakeContext
+        from snowlib.primitives import execute_sql_async
         
         # Setup mock cursor (returned by new_cursor())
         mock_cur = Mock()
@@ -292,8 +293,9 @@ class TestThreadSafety:
         - Thread B: execute_sql("SELECT 2 AS col_b") -> cursor._result_set = B's results (overwrites!)
         - Thread A: result.to_df() -> would get B's columns if cursor was shared
         """
-        from snowlib.primitives import execute_sql
         from concurrent.futures import ThreadPoolExecutor
+
+        from snowlib.primitives import execute_sql
         
         # Track which cursor each call receives
         cursors_used = []

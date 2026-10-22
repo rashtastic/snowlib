@@ -15,10 +15,12 @@ These tests use SnowflakeContext for connection reuse, which means:
 Note: Data I/O and metadata operations are tested in test_models_integration.py
 """
 
-import pytest
-import pandas as pd
 import uuid
-from typing import Iterator
+from collections.abc import Iterator
+
+import pandas as pd
+import pytest
+
 from snowlib.primitives import SnowflakeContext
 
 
@@ -58,7 +60,7 @@ class TestExecutionPrimitives:
     
     def test_execute_sql_create_and_drop_table(self, ctx, qualified_test_table):
         """Test creating and dropping a table."""
-        from snowlib.primitives import execute_sql, QueryResult
+        from snowlib.primitives import QueryResult, execute_sql
         
         # Create table
         result = execute_sql(f"CREATE TABLE {qualified_test_table} (id INT, name VARCHAR(50))", context=ctx)
@@ -103,7 +105,7 @@ class TestExecutionPrimitives:
     
     def test_execute_block_multi_statement(self, ctx, qualified_test_table):
         """Test execute_block with multiple statements."""
-        from snowlib.primitives import execute_block, execute_sql, QueryResult
+        from snowlib.primitives import QueryResult, execute_block, execute_sql
         
         sql_script = f"""
         CREATE TEMP TABLE {qualified_test_table} (id INT);
@@ -170,7 +172,7 @@ class TestAsyncExecution:
 
     def test_execute_sql_async_basic(self, ctx, check_pandas_integration):
         """Test basic async execution with a simple query."""
-        from snowlib.primitives import execute_sql_async, AsyncQuery
+        from snowlib.primitives import AsyncQuery, execute_sql_async
         
         # Submit async query
         job = execute_sql_async("SELECT 1 as test_col", context=ctx)
@@ -215,6 +217,7 @@ class TestAsyncExecution:
     def test_execute_sql_async_polling(self, ctx):
         """Test polling an async query until completion."""
         import time
+
         from snowlib.primitives import execute_sql_async
         
         # Submit a longer-running query

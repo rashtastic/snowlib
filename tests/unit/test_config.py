@@ -1,9 +1,15 @@
 """Unit tests for snowlib configuration module."""
 
-import pytest
 from pathlib import Path
 
-from snowlib.connection import load_profile, list_profiles, resolve_config_path, get_default_config_path
+import pytest
+
+from snowlib.connection import (
+    get_default_config_path,
+    list_profiles,
+    load_profile,
+    resolve_config_path,
+)
 
 
 class TestLoadProfile:

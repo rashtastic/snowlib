@@ -7,7 +7,8 @@ import secrets
 import tempfile
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar
+
 import pandas as pd
 
 from snowlib.models.table.base import TableLike
@@ -142,7 +143,7 @@ class Table(TableLike):
     def _write_simple(
         self,
         df: pd.DataFrame,
-        target_schema: list['ColumnSchema'],
+        target_schema: list[ColumnSchema],
         table_exists: bool,
         json_columns: list[str],
     ) -> None:
@@ -153,6 +154,7 @@ class Table(TableLike):
         For appending to existing VARIANT columns, it uses a temp table approach.
         """
         from snowflake.connector.pandas_tools import write_pandas
+
         from snowlib.utils.json_columns import prepare_json_columns
 
         # Serialize JSON columns to strings for write_pandas
@@ -197,10 +199,11 @@ class Table(TableLike):
         self,
         df: pd.DataFrame,
         variant_columns: list[str],
-        conn: 'Any'
+        conn: Any
     ) -> None:
         """Write data via temp table for appending to tables with VARIANT columns (simple method)"""
         from snowflake.connector.pandas_tools import write_pandas
+
         from snowlib.primitives import execute_sql
 
         random_suffix = secrets.token_hex(4).upper()
@@ -244,7 +247,7 @@ class Table(TableLike):
     def _write_explicit(
         self,
         df: pd.DataFrame,
-        target_schema: list['ColumnSchema'],
+        target_schema: list[ColumnSchema],
         table_exists: bool,
         json_columns: list[str],
     ) -> None:
@@ -261,9 +264,9 @@ class Table(TableLike):
         - Native VARIANT support (no post-conversion needed)
         - Precise type control via explicit projection
         """
+        from snowlib.models import Stage
         from snowlib.primitives import execute_sql
         from snowlib.utils.schema import schema_to_ddl
-        from snowlib.models import Stage
         
         # Create table if it doesn't exist
         if not table_exists:
@@ -346,6 +349,7 @@ class Table(TableLike):
     def _convert_columns_to_variant(self, columns: list[str]) -> None:
         """Convert STRING columns to VARIANT using PARSE_JSON via CTAS"""
         import secrets
+
         from snowlib.primitives import execute_sql
         from snowlib.utils.identifiers import is_valid_identifier
 

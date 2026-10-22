@@ -1,16 +1,14 @@
 """Tests for JSON column detection and serialization utilities"""
 
 import json
-import math
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from snowlib.utils.json_columns import (
     is_json_eligible,
-    serialize_json_column,
     prepare_json_columns,
+    serialize_json_column,
 )
 
 

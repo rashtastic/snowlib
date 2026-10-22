@@ -4,7 +4,8 @@ import warnings
 from typing import TYPE_CHECKING, ClassVar
 
 from snowlib.context import SnowflakeContext
-from .base import Container, FQN
+
+from .base import FQN, Container
 
 if TYPE_CHECKING:
     from .schema import Schema
@@ -24,8 +25,9 @@ class Database(Container):
     @property
     def schemas(self) -> list['Schema']:
         """Get all schemas in this database by querying Snowflake for current state"""
-        from .schema import Schema
         from snowlib.utils.identifiers import is_valid_identifier
+
+        from .schema import Schema
         
         results = self._show_children(Schema)
         name_col = Schema.SHOW_NAME_COLUMN

@@ -1,6 +1,6 @@
 """View class - read-only query-defined object"""
 
-from typing import Optional, ClassVar
+from typing import ClassVar, Optional
 
 from snowlib.models.table.base import TableLike
 

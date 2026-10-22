@@ -1,6 +1,7 @@
 import pytest
 
 from snowlib.models import Database, Schema, Table
+
 TEST_DB = "TEST_DB"
 TEST_SCHEMA = "TEST_SCHEMA"
 

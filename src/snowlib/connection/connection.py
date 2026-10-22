@@ -1,9 +1,10 @@
 """Snowflake connection management with profile support."""
 
+from typing import Any, Literal, Optional, Tuple
+
+import snowflake.connector
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
-import snowflake.connector
-from typing import Optional, Tuple, Any, Literal, Union
 
 from .base import BaseConnector
 

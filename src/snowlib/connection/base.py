@@ -2,11 +2,12 @@
 
 import os
 from pathlib import Path
-from typing import Optional, Any, Dict, Union
-from pydantic import SecretStr
+from typing import Any, Dict, Optional, Union
+
 import keyring
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from pydantic import SecretStr
 
 from .profiles import load_profile
 
@@ -50,7 +51,7 @@ class BaseConnector:
                 backend=default_backend()
             )
         except Exception as e:
-            raise IOError(f"Failed to read or decrypt private key from {key_path}: {e}") from e
+            raise OSError(f"Failed to read or decrypt private key from {key_path}: {e}") from e
 
     def _get_key_details(self) -> tuple[Path, Optional[SecretStr]]:
         """Validate key path and retrieve the private key passphrase from environment variable or keyring"""

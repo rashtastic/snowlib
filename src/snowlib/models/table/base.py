@@ -1,10 +1,11 @@
 """Base class for table-like Snowflake objects"""
 
 import warnings
-from typing import Optional, TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Optional
+
 import pandas as pd
 
-from snowlib.models.base import SchemaChild, Container
+from snowlib.models.base import Container, SchemaChild
 from snowlib.utils.query import SafeQuery
 
 if TYPE_CHECKING:
@@ -57,7 +58,7 @@ class TableLike(SchemaChild, Container):
         query = SafeQuery("SELECT")
         
         if columns:
-            col_identifiers = ", ".join([f"IDENTIFIER(%s)" for _ in columns])
+            col_identifiers = ", ".join(["IDENTIFIER(%s)" for _ in columns])
             query._parts.append(col_identifiers)
             query._bindings.extend(columns)
         else:
@@ -88,8 +89,9 @@ class TableLike(SchemaChild, Container):
     @property
     def columns(self) -> list['Column']:
         """Get current columns by querying Snowflake via SHOW COLUMNS"""
-        from ..column import Column
         from snowlib.utils.identifiers import is_valid_identifier
+
+        from ..column import Column
         
         results = self._show_children(Column)
         name_col = Column.SHOW_NAME_COLUMN
@@ -130,8 +132,8 @@ class TableLike(SchemaChild, Container):
     
     def has_column(self, name: str) -> bool:
         """Check if column exists in this object"""
-        from ..column import Column
         from ..base.show import Show
+        from ..column import Column
         
         show = Show(self._context)
         return show.exists(Column, name, container=self)

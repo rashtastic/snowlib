@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any, Optional
 
 from snowlib.context import SnowflakeContext
+
 from .core import SnowflakeObject
 from .fqn import FQN
 

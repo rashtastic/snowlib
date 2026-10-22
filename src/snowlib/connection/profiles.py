@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import Dict, Union, Optional, Any
+from typing import Any, Dict, Optional, Union
 
 # Use tomllib for Python 3.11+, fallback to tomli for older versions
 if sys.version_info >= (3, 11):

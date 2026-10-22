@@ -1,7 +1,9 @@
 """Optional SQLAlchemy integration for snowlib profiles"""
 
 from typing import Any
-from sqlalchemy import create_engine, Engine
+
+from sqlalchemy import Engine, create_engine
+
 from snowlib.connection.base import BaseConnector
 
 

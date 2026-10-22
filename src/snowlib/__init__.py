@@ -10,34 +10,38 @@ Likely to expand to cortex and leaning more into snowpark
 """
 
 # Layer 1: Core connectivity
-from snowlib.connection import load_profile, list_profiles
-from snowlib.connection import SnowflakeConnector, SnowparkConnector
-from snowlib.context import SnowflakeContext
-
-# Layer 2: Primitives
-from snowlib.primitives import (
-    # Query results
-    QueryResult,
-    AsyncQuery,
-    # Execution
-    execute_sql,
-    execute_sql_async,
-    execute_block,
-    query,
+from snowlib.connection import (
+    SnowflakeConnector,
+    SnowparkConnector,
+    list_profiles,
+    load_profile,
 )
+from snowlib.context import SnowflakeContext
 
 # Layer 3: Models (OOP interface for Snowflake objects)
 from snowlib.models import (
-    Database,
-    Schema,
-    Table,
-    View,
-    MaterializedView,
-    DynamicTable,
     Column,
+    Database,
+    DynamicTable,
+    MaterializedView,
+    Schema,
+    Show,
     Stage,
     StageObject,
-    Show,
+    Table,
+    View,
+)
+
+# Layer 2: Primitives
+from snowlib.primitives import (
+    AsyncQuery,
+    # Query results
+    QueryResult,
+    execute_block,
+    # Execution
+    execute_sql,
+    execute_sql_async,
+    query,
 )
 
 # Session: Context-bound convenience layer

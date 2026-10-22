@@ -3,11 +3,12 @@
 These tests verify that the object-oriented models (Database, Schema, Table)
 interact correctly with a live Snowflake instance.
 """
-import pytest
-import uuid
-import pandas as pd
 import datetime
-from typing import Iterator
+import uuid
+from collections.abc import Iterator
+
+import pandas as pd
+import pytest
 
 from snowlib.context import SnowflakeContext
 from snowlib.models import Database

@@ -11,7 +11,6 @@ import pytest
 from snowlib import SnowparkConnector, load_profile
 from snowlib.connection import get_default_config_path
 
-
 # Disable Snowpark pandas hybrid execution warnings
 try:
     from modin.config import AutoSwitchBackend
@@ -209,6 +208,7 @@ class TestSnowparkPandasAPI:
     def shared_pandas_session(self, check_config_exists, check_snowpark_installed, check_modin_installed, test_profile):
         """Create a shared Snowpark session for pandas tests."""
         import snowflake.snowpark.modin.plugin  # noqa: F401
+
         from snowlib.connection import SnowparkConnector
         
         connector = SnowparkConnector(profile=test_profile)

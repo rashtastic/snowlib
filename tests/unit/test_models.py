@@ -3,9 +3,10 @@
 These tests mock the underlying primitives to test the logic of the
 Snowflake object model without requiring a live connection.
 """
-import pytest
 import warnings
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from snowlib.context import SnowflakeContext
 from snowlib.models import Database, Schema
@@ -139,6 +140,7 @@ class TestTableModel:
     @patch("snowlib.primitives.Executor")
     def test_table_read(self, mock_executor_class, mock_ctx):
         import pandas as pd
+
         from snowlib.primitives.result import QueryResult
         
         table = Table("DB", "SCHEMA", "TABLE", context=mock_ctx)
