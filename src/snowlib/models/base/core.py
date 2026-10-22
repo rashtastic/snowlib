@@ -100,7 +100,7 @@ class SnowflakeObject(ABC):
         """Objects are equal if they have same type and FQN (case-insensitive)."""
         if not isinstance(other, SnowflakeObject):
             return False
-        return type(self) == type(other) and self.fqn.upper() == other.fqn.upper()
+        return type(self) is type(other) and self.fqn.upper() == other.fqn.upper()
 
     def __hash__(self) -> int:
         """Hash based on class type and FQN for use in sets/dicts."""

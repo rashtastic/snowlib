@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import secrets
 import tempfile
@@ -238,10 +239,8 @@ class Table(TableLike):
             )
 
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 temp_table.drop(if_exists=True)
-            except Exception:
-                pass
 
     def _write_explicit(
         self,
@@ -345,10 +344,8 @@ class Table(TableLike):
 
         finally:
             # Clean up temp stage
-            try:
+            with contextlib.suppress(Exception):
                 temp_stage.drop(if_exists=True)
-            except Exception:
-                pass
 
     def _convert_columns_to_variant(self, columns: list[str]) -> None:
         """Convert STRING columns to VARIANT using PARSE_JSON via CTAS"""
@@ -410,14 +407,13 @@ class Table(TableLike):
         except Exception:
             # Try to clean up temp table if something went wrong
             # (though it will auto-cleanup on session end anyway)
-            try:
+            # Cleanup failure is not critical
+            with contextlib.suppress(Exception):
                 execute_sql(
                     "DROP TABLE IF EXISTS IDENTIFIER(%s)",
                     context=self._context,
                     bindings=[temp_table],
                 )
-            except Exception:
-                pass  # Cleanup failure is not critical
             raise
 
         logger.info(f"Converted {len(columns)} column(s) to VARIANT: {columns}")

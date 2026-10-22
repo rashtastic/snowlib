@@ -60,11 +60,7 @@ def is_json_eligible(series: pd.Series) -> bool:
         return False
 
     # Verify all non-null values are JSON-serializable
-    for value in non_null:
-        if not _is_json_serializable(value):
-            return False
-
-    return True
+    return all(_is_json_serializable(value) for value in non_null)
 
 
 def serialize_json_column(series: pd.Series) -> pd.Series:

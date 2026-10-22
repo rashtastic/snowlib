@@ -3,7 +3,9 @@
 from snowlib.context import SnowflakeContext
 from snowlib.primitives.async_query import AsyncQuery
 from snowlib.primitives.execute import (
-    Executor,  # Internal use, not in __all__
+    Executor as Executor,  # Internal use, not in __all__
+)
+from snowlib.primitives.execute import (
     execute_block,
     execute_sql,
     execute_sql_async,

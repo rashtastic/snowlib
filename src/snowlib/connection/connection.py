@@ -64,11 +64,11 @@ class SnowparkConnector(BaseConnector):
         """Initialize the Snowpark connector with a configuration profile and optional parameter overrides"""
         try:
             from snowflake.snowpark import Session
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "Snowpark is not installed. "
                 + "Install it with: pip install snowflake-snowpark-python"
-            )
+            ) from err
 
         super().__init__(profile, config_path=config_path, **kwargs)
 
