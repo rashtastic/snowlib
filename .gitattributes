@@ -1,2 +1,5 @@
+# Text is stored LF in git and checked out LF on every platform.
+* text=auto eol=lf
+
 *.ipynb filter=nbstripout
 *.ipynb diff=ipynb
