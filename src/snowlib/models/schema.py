@@ -12,7 +12,7 @@ from .base import FQN, Container
 if TYPE_CHECKING:
     from .database import Database
     from .stage import Stage
-    from .table import Table, View
+    from .table import DynamicTable, Table, View
 
 
 class Schema(Container):
@@ -93,7 +93,7 @@ class Schema(Container):
 
     @property
     def tables(self) -> list[Table]:
-        """Get all tables in schema by querying Snowflake for current state"""
+        """Get all tables in schema, including dynamic tables, which SHOW TABLES lists too"""
         from snowlib.utils.identifiers import is_valid_identifier
 
         from .table import Table
@@ -149,6 +149,34 @@ class Schema(Container):
                 warnings.warn(msg, UserWarning, stacklevel=2)
 
         return views
+
+    @property
+    def dynamic_tables(self) -> list[DynamicTable]:
+        """Get all dynamic tables in schema, with their refresh settings in metadata"""
+        from snowlib.utils.identifiers import is_valid_identifier
+
+        from .table import DynamicTable
+
+        results = self._show_children(DynamicTable)
+
+        dynamic_tables = []
+        for row in results:
+            name = row["name"]
+            if is_valid_identifier(name):
+                dynamic_tables.append(
+                    DynamicTable(
+                        self._database_name, self._schema_name, name, self._context
+                    )
+                )
+            else:
+                msg = (
+                    f"Skipping dynamic table with quoted identifier: {name!r}. "
+                    "Models layer only supports unquoted identifiers. "
+                    "Use primitives layer for quoted identifiers."
+                )
+                warnings.warn(msg, UserWarning, stacklevel=2)
+
+        return dynamic_tables
 
     def table(self, name: str) -> Table:
         """Get specific table by name without validating existence"""

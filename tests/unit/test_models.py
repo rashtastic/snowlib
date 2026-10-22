@@ -179,6 +179,48 @@ class TestTableModel:
         )
 
 
+class TestSchemaDynamicTables:
+    """SHOW TABLES lists dynamic tables too; SHOW DYNAMIC TABLES lists only them."""
+
+    SHOW_TABLES = [
+        {"name": "PLAIN", "is_dynamic": "N"},
+        {"name": "DYN", "is_dynamic": "Y"},
+    ]
+    SHOW_DYNAMIC_TABLES = [{"name": "DYN", "target_lag": "1 hour"}]
+
+    def _schema(self, mock_ctx):
+        schema = Schema("DB", "SCH", context=mock_ctx)
+
+        def show_children(child_class, **filters):
+            if child_class is DynamicTable:
+                return self.SHOW_DYNAMIC_TABLES
+            return self.SHOW_TABLES
+
+        return schema, show_children
+
+    def test_dynamic_tables(self, mock_ctx):
+        schema, show_children = self._schema(mock_ctx)
+        with patch.object(schema, "_show_children", side_effect=show_children):
+            dynamic = schema.dynamic_tables
+        assert [type(t) for t in dynamic] == [DynamicTable]
+        assert [t.fqn for t in dynamic] == ["DB.SCH.DYN"]
+
+    def test_tables_still_includes_dynamic_as_table(self, mock_ctx):
+        schema, show_children = self._schema(mock_ctx)
+        with patch.object(schema, "_show_children", side_effect=show_children):
+            tables = schema.tables
+        assert [t.fqn for t in tables] == ["DB.SCH.PLAIN", "DB.SCH.DYN"]
+        assert all(type(t) is Table for t in tables)
+
+    def test_quoted_dynamic_table_is_skipped_with_warning(self, mock_ctx):
+        schema = Schema("DB", "SCH", context=mock_ctx)
+        rows = [{"name": "OK"}, {"name": "bad.name"}]
+        with patch.object(schema, "_show_children", return_value=rows):
+            with pytest.warns(UserWarning, match="quoted identifier"):
+                dynamic = schema.dynamic_tables
+        assert [t.fqn for t in dynamic] == ["DB.SCH.OK"]
+
+
 class TestObjectKeyword:
     """DESCRIBE and DROP name the object type with SQL's own keyword."""
 
