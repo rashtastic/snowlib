@@ -4,9 +4,9 @@ import pytest
 
 # Skip all tests in this module if sqlalchemy is not installed
 sqlalchemy = pytest.importorskip("sqlalchemy")
-from sqlalchemy import text
+from sqlalchemy import text  # noqa: E402
 
-from snowlib.sqlalchemy import create_engine_from_profile
+from snowlib.sqlalchemy import create_engine_from_profile  # noqa: E402
 
 
 def test_create_engine_and_connect(test_profile: str):

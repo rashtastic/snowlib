@@ -120,6 +120,11 @@ select = [
     "PLE", # pylint errors
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Nested `with` keeps pytest.raises and patch scopes readable; merged, these
+# exceed the line length, and parenthesized context managers need Python 3.10.
+"tests/**" = ["SIM117"]
+
 # `exclude` restates Pyright's defaults, because naming any exclude replaces them.
 [tool.pyright]
 venvPath = "."

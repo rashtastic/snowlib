@@ -271,7 +271,7 @@ class TestSnowparkConnection:
     ):
         """Test that Snowpark session closes properly."""
         connector = SnowparkConnector(profile=test_profile)
-        session = connector.session()
+        connector.session()
 
         assert connector._session is not None
 

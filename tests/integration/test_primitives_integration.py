@@ -15,6 +15,7 @@ These tests use SnowflakeContext for connection reuse, which means:
 Note: Data I/O and metadata operations are tested in test_models_integration.py
 """
 
+import contextlib
 import uuid
 from collections.abc import Iterator
 
@@ -143,10 +144,8 @@ class TestExecutionPrimitives:
             assert len(rows) == 3
         finally:
             # Cleanup (TEMP table should auto-cleanup, but be safe)
-            try:
+            with contextlib.suppress(Exception):
                 execute_sql(f"DROP TABLE IF EXISTS {qualified_test_table}", context=ctx)
-            except:  # noqa: E722
-                pass
 
 
 class TestStreamingPrimitives:
@@ -326,6 +325,6 @@ class TestAsyncExecution:
 
         # All should complete successfully
         assert len(results) == 3
-        for i, result in enumerate(results):
+        for result in results:
             df = result.to_df()
             assert len(df) == 1

@@ -207,9 +207,7 @@ class TestTableTypeMismatchWarning:
             # Table doesn't exist, but View does
             if cls == Table:
                 return False
-            if cls == View:
-                return True
-            return False
+            return cls == View
 
         mock_show_instance.exists.side_effect = exists_side_effect
         mock_show_class.return_value = mock_show_instance
@@ -234,9 +232,7 @@ class TestTableTypeMismatchWarning:
             # View doesn't exist, but Table does
             if cls == View:
                 return False
-            if cls == Table:
-                return True
-            return False
+            return cls == Table
 
         mock_show_instance.exists.side_effect = exists_side_effect
         mock_show_class.return_value = mock_show_instance

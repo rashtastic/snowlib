@@ -1,5 +1,7 @@
 """Test FQN class"""
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from snowlib.models.base.fqn import FQN
@@ -86,7 +88,7 @@ def test_fqn_empty_raises():
 def test_fqn_immutable():
     """Test FQN is immutable (frozen dataclass)"""
     fqn = FQN.from_parts("my_db", "public")
-    with pytest.raises(Exception):  # FrozenInstanceError or AttributeError
+    with pytest.raises(FrozenInstanceError):
         fqn.parts = ("other_db", "other_schema")
 
 

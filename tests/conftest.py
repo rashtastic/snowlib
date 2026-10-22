@@ -9,11 +9,11 @@ if sys.version_info >= (3, 11):
 else:
     try:
         import tomli as tomllib
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "Python < 3.11 requires 'tomli' package. "
             + "Install it with: pip install tomli"
-        )
+        ) from err
 
 import pytest
 
