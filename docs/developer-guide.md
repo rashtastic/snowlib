@@ -473,6 +473,8 @@ pytest --cov=snowlib
 
 ### Tox (Multi-version Testing)
 
+tox creates its environments through the `tox-uv` plugin (in the `dev` extra), and uv downloads any Python version from 3.9 to 3.14 that is not already installed. Nothing needs to be on PATH, and the default `python` is not changed.
+
 ```powershell
 # Run all Python versions
 tox

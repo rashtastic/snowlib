@@ -76,6 +76,7 @@ dev = [
     "pandas-stubs",
     "ipykernel",
     "tox",
+    "tox-uv",
     # Security
     "bandit",
     "detect-secrets",
