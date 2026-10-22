@@ -75,11 +75,15 @@ class SnowflakeObject(ABC):
         show = Show(self._context)
         return show.get_metadata(self.__class__, self.name, container=self.container)
 
+    @classmethod
+    def _object_keyword(cls) -> str:
+        """Singular object keyword for DESCRIBE and DROP: DYNAMIC TABLES -> DYNAMIC TABLE."""
+        plural = cls.SHOW_PLURAL
+        return plural[:-1] if plural.endswith("S") else plural
+
     def describe(self) -> "Any":  # Returns pd.DataFrame
         """Get object metadata via DESCRIBE command as DataFrame."""
-        # Use class name for DESCRIBE (TABLE, VIEW, etc.)
-        object_type = self.__class__.__name__.upper()
-        sql = f"DESCRIBE {object_type} {self.fqn}"
+        sql = f"DESCRIBE {self._object_keyword()} {self.fqn}"
 
         from snowlib.primitives import Executor
 

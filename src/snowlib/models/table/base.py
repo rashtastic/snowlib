@@ -78,7 +78,7 @@ class TableLike(SchemaChild, Container):
         """Drop this object from Snowflake"""
         from snowlib.primitives import execute_sql
 
-        object_type = self.SHOW_PLURAL.rstrip("S")
+        object_type = self._object_keyword()
 
         if if_exists:
             sql = f"DROP {object_type} IF EXISTS {self.fqn}"

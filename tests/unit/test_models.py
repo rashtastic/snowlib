@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from snowlib.context import SnowflakeContext
-from snowlib.models import Database, Schema
-from snowlib.models.table import Table, View
+from snowlib.models import Database, Schema, Stage
+from snowlib.models.table import DynamicTable, MaterializedView, Table, View
 
 
 @pytest.fixture
@@ -177,6 +177,54 @@ class TestTableModel:
         mock_execute.assert_called_once_with(
             "DROP TABLE DB.SCHEMA.TABLE", context=mock_ctx
         )
+
+
+class TestObjectKeyword:
+    """DESCRIBE and DROP name the object type with SQL's own keyword."""
+
+    @pytest.mark.parametrize(
+        ("make", "expected"),
+        [
+            (lambda ctx: Database("DB", context=ctx), "DESCRIBE DATABASE DB"),
+            (lambda ctx: Schema("DB", "SCH", context=ctx), "DESCRIBE SCHEMA DB.SCH"),
+            (
+                lambda ctx: Table("DB", "SCH", "T", context=ctx),
+                "DESCRIBE TABLE DB.SCH.T",
+            ),
+            (lambda ctx: View("DB", "SCH", "V", context=ctx), "DESCRIBE VIEW DB.SCH.V"),
+            (
+                lambda ctx: DynamicTable("DB", "SCH", "DT", context=ctx),
+                "DESCRIBE DYNAMIC TABLE DB.SCH.DT",
+            ),
+            (
+                lambda ctx: MaterializedView("DB", "SCH", "MV", context=ctx),
+                "DESCRIBE MATERIALIZED VIEW DB.SCH.MV",
+            ),
+            (
+                lambda ctx: Stage("DB", "SCH", "STG", context=ctx),
+                "DESCRIBE STAGE DB.SCH.STG",
+            ),
+        ],
+    )
+    @patch("snowlib.primitives.Executor")
+    def test_describe_sql(self, mock_executor_class, make, expected, mock_ctx):
+        make(mock_ctx).describe()
+        executor = mock_executor_class.return_value
+        executor.run_with_result_scan.assert_called_once_with(expected)
+
+    @pytest.mark.parametrize(
+        ("cls", "expected"),
+        [
+            (Table, "DROP TABLE DB.SCH.X"),
+            (View, "DROP VIEW DB.SCH.X"),
+            (DynamicTable, "DROP DYNAMIC TABLE DB.SCH.X"),
+            (MaterializedView, "DROP MATERIALIZED VIEW DB.SCH.X"),
+        ],
+    )
+    @patch("snowlib.primitives.execute_sql")
+    def test_drop_sql(self, mock_execute, cls, expected, mock_ctx):
+        cls("DB", "SCH", "X", context=mock_ctx).drop()
+        mock_execute.assert_called_once_with(expected, context=mock_ctx)
 
 
 class TestTableTypeMismatchWarning:
