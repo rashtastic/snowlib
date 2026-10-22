@@ -24,7 +24,7 @@ class SnowflakeConnector(BaseConnector):
     def connect(self) -> tuple[SnowflakeConnection, SnowflakeCursor]:
         """Establish connection to Snowflake if not already connected and return connection and cursor"""
         if self._connection is None:
-            self._connection = snowflake.connector.connect(**self._cfg)  # type: ignore[misc]
+            self._connection = snowflake.connector.connect(**self._connector_args())  # type: ignore[misc]
             self._cursor = self._connection.cursor()
 
         assert self._connection is not None
@@ -78,7 +78,9 @@ class SnowparkConnector(BaseConnector):
     def session(self) -> Any:
         """Get or create a Snowpark Session"""
         if self._session is None:
-            self._session = self._Session.builder.configs(self._cfg).create()
+            self._session = self._Session.builder.configs(
+                self._connector_args()
+            ).create()
         return self._session
 
     def close(self) -> None:

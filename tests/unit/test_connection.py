@@ -233,6 +233,79 @@ schema = "DEV_SCHEMA"
             assert "connected" in repr_str
 
 
+class TestConnectorArgs:
+    """What snowlib passes on to the connector from a profile."""
+
+    KEEP_ALIVE = "enable_server_session_keep_alive_auto_detection"
+
+    @pytest.fixture
+    def connector(self, tmp_path):
+        """A connector on a profile that also carries snowlib's own keys."""
+        config_path = tmp_path / "connections.toml"
+        config_path.write_text(
+            """
+[keyring]
+account = "test-account"
+user = "test-user"
+authenticator = "externalbrowser"
+use_keyring = true
+keyring_service = "snowflake"
+keyring_username = "svc"
+private_key_passphrase_env = "PASSPHRASE_VAR"
+"""
+        )
+        with patch(
+            "snowlib.connection.profiles.resolve_config_path", return_value=config_path
+        ):
+            return SnowflakeConnector(profile="keyring")
+
+    @pytest.mark.parametrize("major", [3, 4, 5])
+    @patch("snowflake.connector.connect")
+    def test_snowlib_keys_not_passed(self, mock_connect, major, connector):
+        with patch(
+            "snowlib.connection.base._connector_major_version", return_value=major
+        ):
+            connector.connect()
+        kwargs = mock_connect.call_args.kwargs
+        assert kwargs["account"] == "test-account"
+        assert kwargs["authenticator"] == "externalbrowser"
+        for key in (
+            "use_keyring",
+            "keyring_service",
+            "keyring_username",
+            "private_key_passphrase_env",
+        ):
+            assert key not in kwargs
+        # Still readable by snowlib itself
+        assert connector._cfg["use_keyring"] is True
+
+    @pytest.mark.parametrize(("major", "expected"), [(4, False), (5, True), (6, True)])
+    @patch("snowflake.connector.connect")
+    def test_keep_alive_set_on_connector_5(
+        self, mock_connect, major, expected, connector
+    ):
+        with patch(
+            "snowlib.connection.base._connector_major_version", return_value=major
+        ):
+            connector.connect()
+        kwargs = mock_connect.call_args.kwargs
+        assert (self.KEEP_ALIVE in kwargs) is expected
+        if expected:
+            assert kwargs[self.KEEP_ALIVE] is True
+
+    @patch("snowflake.connector.connect")
+    def test_keep_alive_from_profile_is_kept(self, mock_connect, connector):
+        connector._cfg[self.KEEP_ALIVE] = False
+        with patch("snowlib.connection.base._connector_major_version", return_value=5):
+            connector.connect()
+        assert mock_connect.call_args.kwargs[self.KEEP_ALIVE] is False
+
+    def test_installed_connector_version_parses(self):
+        from snowlib.connection.base import _connector_major_version
+
+        assert _connector_major_version() >= 3
+
+
 @pytest.mark.skipif(not SNOWPARK_AVAILABLE, reason="Snowpark is not installed")
 class TestSnowparkConnector:
     """Tests for SnowparkConnector class."""
@@ -305,7 +378,7 @@ database = "TEST_DB"
             session = connector.session()
 
             # Verify session was created
-            mock_builder.configs.assert_called_once_with(connector._cfg)
+            mock_builder.configs.assert_called_once_with(connector._connector_args())
             assert session == mock_session_instance
 
     @patch("snowflake.snowpark.Session")

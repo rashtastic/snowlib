@@ -11,6 +11,29 @@ from pydantic import SecretStr
 
 from .profiles import load_profile
 
+# Profile keys snowlib reads for itself; the connector does not know them and
+# warns about each one.
+SNOWLIB_PROFILE_KEYS = frozenset(
+    {
+        "private_key_passphrase_env",
+        "use_keyring",
+        "keyring_service",
+        "keyring_username",
+    }
+)
+
+# Connector 5 warns when this is unset because its default is changing to
+# always logging out on close, which can end running async queries. True is
+# the current behavior. Older connectors do not know the parameter.
+KEEP_ALIVE_DETECTION = "enable_server_session_keep_alive_auto_detection"
+
+
+def _connector_major_version() -> int:
+    """Major version of the installed snowflake-connector-python"""
+    import snowflake.connector
+
+    return int(snowflake.connector.__version__.split(".")[0])
+
 
 class BaseConnector:
     """Base class for Snowflake connectors with TOML profile support and authentication handling"""
@@ -29,6 +52,13 @@ class BaseConnector:
         self._cfg.update(kwargs)
         self._profile = profile
         self._process_auth()
+
+    def _connector_args(self) -> dict[str, Any]:
+        """Profile parameters to pass to the connector, without snowlib's own keys"""
+        args = {k: v for k, v in self._cfg.items() if k not in SNOWLIB_PROFILE_KEYS}
+        if KEEP_ALIVE_DETECTION not in args and _connector_major_version() >= 5:
+            args[KEEP_ALIVE_DETECTION] = True
+        return args
 
     def _process_auth(self) -> None:
         """Process authentication credentials from the profile for keypair or password authentication"""
