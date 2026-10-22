@@ -9,7 +9,7 @@ import pytest
 from snowlib.context import SnowflakeContext
 from snowlib.models import Column, Database, Schema, Stage
 from snowlib.models.base.show import SHOW_ROW_LIMIT, Show
-from snowlib.models.table import Table, View
+from snowlib.models.table import DynamicTable, MaterializedView, Table, View
 
 
 @pytest.fixture
@@ -131,6 +131,26 @@ def test_unpaged_kind_warns_at_the_limit(object_class, make_container, mock_ctx)
         patcher.stop()
     assert len(rows) == SHOW_ROW_LIMIT
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("make_container", "expected"),
+    [
+        (lambda ctx: Table("DB", "SCH", "T", context=ctx), "IN TABLE"),
+        (lambda ctx: View("DB", "SCH", "V", context=ctx), "IN VIEW"),
+        (lambda ctx: DynamicTable("DB", "SCH", "DT", context=ctx), "IN TABLE"),
+        (lambda ctx: MaterializedView("DB", "SCH", "MV", context=ctx), "IN VIEW"),
+        (lambda ctx: Schema("DB", "SCH", context=ctx), "IN SCHEMA"),
+        (lambda ctx: Database("DB", context=ctx), "IN DATABASE"),
+    ],
+)
+def test_container_keyword(make_container, expected, mock_ctx):
+    show, calls, patcher = show_with(["A"], mock_ctx)
+    try:
+        show.execute(Column, container=make_container(mock_ctx))
+    finally:
+        patcher.stop()
+    assert f"{expected} IDENTIFIER(%s)" in calls[0][0]
 
 
 def test_unpaged_kind_below_the_limit_is_quiet(mock_ctx):

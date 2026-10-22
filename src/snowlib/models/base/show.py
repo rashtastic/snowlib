@@ -54,7 +54,9 @@ class Show:
         10,000-row maximum; kinds that do not warn when they reach it.
         """
         kind = object_class.SHOW_PLURAL
-        container_type = container.__class__.__name__.upper() if container else None
+        # IN takes DATABASE, SCHEMA, TABLE or VIEW: a dynamic table's columns are
+        # shown IN TABLE and a materialized view's IN VIEW.
+        container_type = container._object_keyword().split()[-1] if container else None
         if isinstance(starts_with, str):
             starts_with = starts_with.upper()
 
