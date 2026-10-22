@@ -10,6 +10,8 @@ from snowlib.context import SnowflakeContext
 from .base import FQN, Container
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from .database import Database
     from .stage import Stage
     from .table import DynamicTable, Table, View
@@ -177,6 +179,32 @@ class Schema(Container):
                 warnings.warn(msg, UserWarning, stacklevel=2)
 
         return dynamic_tables
+
+    def columns(self) -> pd.DataFrame:
+        """Every table and view column in the schema from information_schema, in one query"""
+        from snowlib.primitives import Executor
+
+        columns = (
+            Executor(self._context)
+            .run(
+                "SELECT * FROM IDENTIFIER(%s) WHERE table_schema = %s "
+                + "ORDER BY table_name, ordinal_position",
+                bindings=[
+                    f"{self._database_name}.INFORMATION_SCHEMA.COLUMNS",
+                    self._schema_name,
+                ],
+            )
+            .to_df()
+        )
+        fqn = (
+            columns["table_catalog"]
+            + "."
+            + columns["table_schema"]
+            + "."
+            + columns["table_name"]
+        )
+        columns.insert(0, "object_fqn", fqn)
+        return columns
 
     def table(self, name: str) -> Table:
         """Get specific table by name without validating existence"""

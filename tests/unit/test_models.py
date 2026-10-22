@@ -221,6 +221,45 @@ class TestSchemaDynamicTables:
         assert [t.fqn for t in dynamic] == ["DB.SCH.OK"]
 
 
+class TestSchemaColumns:
+    @patch("snowlib.primitives.Executor")
+    def test_one_bound_query(self, mock_executor_class, mock_ctx):
+        import pandas as pd
+
+        run = mock_executor_class.return_value.run
+        run.return_value.to_df.return_value = pd.DataFrame(
+            {
+                "table_catalog": ["DB", "DB"],
+                "table_schema": ["SCH", "SCH"],
+                "table_name": ["T", "V"],
+                "column_name": ["ID", "NAME"],
+            }
+        )
+        df = Schema("DB", "SCH", context=mock_ctx).columns()
+
+        sql = run.call_args.args[0]
+        assert "FROM IDENTIFIER(%s) WHERE table_schema = %s" in sql
+        assert sql.endswith("ORDER BY table_name, ordinal_position")
+        assert run.call_args.kwargs["bindings"] == [
+            "DB.INFORMATION_SCHEMA.COLUMNS",
+            "SCH",
+        ]
+        assert df.columns[0] == "object_fqn"
+        assert df["object_fqn"].tolist() == ["DB.SCH.T", "DB.SCH.V"]
+
+    @patch("snowlib.primitives.Executor")
+    def test_empty_schema(self, mock_executor_class, mock_ctx):
+        import pandas as pd
+
+        run = mock_executor_class.return_value.run
+        run.return_value.to_df.return_value = pd.DataFrame(
+            columns=["table_catalog", "table_schema", "table_name", "column_name"]
+        )
+        df = Schema("DB", "SCH", context=mock_ctx).columns()
+        assert df.empty
+        assert df.columns[0] == "object_fqn"
+
+
 class TestObjectKeyword:
     """DESCRIBE and DROP name the object type with SQL's own keyword."""
 
