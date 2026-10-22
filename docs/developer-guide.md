@@ -555,6 +555,7 @@ Build notebooks in `build/` directory:
 3. `03_publish.ipynb` - Build and publish to PyPI
 
 Quality checks include:
+- ruff check and ruff format --check (lint and formatting; rules pinned in `[tool.ruff.lint]`)
 - mypy (type checking)
 - pyright (type checking)
 - pytest (unit and integration tests)

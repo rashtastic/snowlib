@@ -17,6 +17,9 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
 
+    // Lint with the project's ruff rather than the extension's bundled copy.
+    "ruff.importStrategy": "fromEnvironment",
+
     // LF on disk, matching .gitattributes; VS Code defaults to CRLF on Windows.
     "files.eol": "\n",
 

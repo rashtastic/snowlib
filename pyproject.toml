@@ -71,6 +71,7 @@ dev = [
     "pytest-xdist",
     "mypy",
     "pyright",
+    "ruff",
     "types-pyyaml",
     "pandas-stubs",
     "ipykernel",
@@ -98,6 +99,25 @@ snowlib = ["_data/*.example"]
 
 [tool.setuptools.dynamic]
 version = {attr = "snowlib.__version__"}
+
+[tool.ruff]
+# Notebooks are build scripts kept clean by nbstripout; ruff's --fix would
+# reserialize them.
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+# Pinned explicitly: ruff's default selection widens between releases, and an
+# unpinned set means an upgrade silently changes what counts as a lint error.
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # import sorting
+    "UP",  # pyupgrade, modern syntax for requires-python
+    "B",   # bugbear, likely-bug patterns
+    "C4",  # comprehension simplifications
+    "SIM", # simplifications
+    "PLE", # pylint errors
+]
 
 # `exclude` restates Pyright's defaults, because naming any exclude replaces them.
 [tool.pyright]
