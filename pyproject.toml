@@ -102,8 +102,9 @@ version = {attr = "snowlib.__version__"}
 
 [tool.ruff]
 # Notebooks are build scripts kept clean by nbstripout; ruff's --fix would
-# reserialize them.
-extend-exclude = ["*.ipynb"]
+# reserialize them. Markdown code blocks are hand-formatted examples, which
+# ruff format would otherwise rewrite.
+extend-exclude = ["*.ipynb", "*.md"]
 
 [tool.ruff.lint]
 # Pinned explicitly: ruff's default selection widens between releases, and an
