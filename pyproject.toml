@@ -99,6 +99,31 @@ snowlib = ["_data/*.example"]
 [tool.setuptools.dynamic]
 version = {attr = "snowlib.__version__"}
 
+# `exclude` restates Pyright's defaults, because naming any exclude replaces them.
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+include = ["src"]
+exclude = ["**/node_modules", "**/__pycache__", "**/.*", "tests", "build", "dist", "temp", "local"]
+typeCheckingMode = "standard"
+reportUnusedVariable = "warning"
+reportUnusedImport = "warning"
+reportUnusedClass = "warning"
+reportUnusedFunction = "warning"
+reportUnnecessaryIsInstance = "warning"
+reportUnnecessaryCast = "warning"
+reportImplicitStringConcatenation = "warning"
+reportMissingTypeStubs = "none"
+reportImportCycles = "warning"
+reportUninitializedInstanceVariable = "warning"
+reportUnknownParameterType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownVariableType = "none"
+reportUnknownMemberType = "none"
+reportMissingParameterType = "none"
+reportMissingTypeArgument = "none"
+reportPrivateUsage = "none"
+
 [tool.mypy]
 plugins = ["pydantic.mypy"]
 python_version = "3.11"
