@@ -20,6 +20,7 @@ class Schema(Container):
 
     SHOW_PLURAL: ClassVar[str] = "SCHEMAS"
     SHOW_NAME_COLUMN: ClassVar[str] = "name"
+    GET_DDL_TYPE: ClassVar[str | None] = "SCHEMA"
 
     def __init__(self, database: str, name: str, context: SnowflakeContext):
         """Initialize schema object"""

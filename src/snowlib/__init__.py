@@ -46,6 +46,7 @@ from snowlib.primitives import (
 
 # Session: Context-bound convenience layer
 from snowlib.session import Session, create_session
+from snowlib.utils.ddl import DdlTarget
 
 __version__ = "0.4.8"
 __all__ = [
@@ -74,6 +75,7 @@ __all__ = [
     "Stage",
     "StageObject",
     "Show",
+    "DdlTarget",
     # Session
     "Session",
     "create_session",

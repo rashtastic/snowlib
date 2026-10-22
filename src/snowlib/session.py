@@ -18,6 +18,7 @@ from snowlib.models import (
 )
 from snowlib.models.base import SnowflakeObject
 from snowlib.primitives import AsyncQuery, Executor, QueryResult
+from snowlib.utils.ddl import DdlTarget, ddl_query
 
 
 class HasFromName(Protocol):
@@ -130,6 +131,11 @@ class Session:
     ) -> pd.DataFrame:
         """SHOW <kind> [IN <object>] as a DataFrame: session.show("tasks", in_=schema)"""
         return Show(self._context).rows(kind, container=in_, like=like)
+
+    def get_ddl(self, targets: list[DdlTarget]) -> pd.DataFrame:
+        """GET_DDL for many objects in one query: object_type, object_name, ddl"""
+        sql, bindings = ddl_query(targets)
+        return Executor(self._context).run(sql, bindings=bindings).to_df()
 
     # Model factories (bound models with from_name support)
 

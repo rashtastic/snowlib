@@ -14,6 +14,8 @@ class SnowflakeObject(ABC):
 
     SHOW_PLURAL: ClassVar[str]
     SHOW_NAME_COLUMN: ClassVar[str] = "name"
+    # GET_DDL's name for this type, or None where GET_DDL has none (stages)
+    GET_DDL_TYPE: ClassVar[Optional[str]] = None
 
     def __init__(self, context: SnowflakeContext):
         """Initialize with frozen connection context"""
@@ -80,6 +82,26 @@ class SnowflakeObject(ABC):
         """Singular object keyword for DESCRIBE and DROP: DYNAMIC TABLES -> DYNAMIC TABLE."""
         plural = cls.SHOW_PLURAL
         return plural[:-1] if plural.endswith("S") else plural
+
+    def ddl(self) -> str:
+        """Get this object's DDL from GET_DDL, with fully qualified names."""
+        from snowlib.primitives import Executor
+        from snowlib.utils.ddl import quote_ident
+
+        if self.GET_DDL_TYPE is None:
+            raise NotImplementedError(
+                f"GET_DDL does not support {self.__class__.__name__}"
+            )
+        name = ".".join(quote_ident(p) for p in self.fqn.split("."))
+        df = (
+            Executor(context=self._context)
+            .run(
+                "SELECT GET_DDL(%s, %s, TRUE) AS ddl",
+                bindings=[self.GET_DDL_TYPE, name],
+            )
+            .to_df()
+        )
+        return str(df["ddl"].iloc[0])
 
     def describe(self) -> "Any":  # Returns pd.DataFrame
         """Get object metadata via DESCRIBE command as DataFrame."""

@@ -10,6 +10,7 @@ class View(TableLike):
 
     SHOW_PLURAL: ClassVar[str] = "VIEWS"
     SHOW_NAME_COLUMN: ClassVar[str] = "name"
+    GET_DDL_TYPE: ClassVar[Optional[str]] = "VIEW"
 
     @property
     def definition(self) -> Optional[str]:

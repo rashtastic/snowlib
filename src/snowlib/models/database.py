@@ -1,7 +1,7 @@
 """Database object class"""
 
 import warnings
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from snowlib.context import SnowflakeContext
 
@@ -16,6 +16,7 @@ class Database(Container):
 
     SHOW_PLURAL: ClassVar[str] = "DATABASES"
     SHOW_NAME_COLUMN: ClassVar[str] = "name"
+    GET_DDL_TYPE: ClassVar[Optional[str]] = "DATABASE"
 
     def __init__(self, name: str, context: SnowflakeContext):
         """Initialize database object"""

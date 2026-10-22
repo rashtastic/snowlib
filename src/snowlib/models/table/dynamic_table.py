@@ -10,6 +10,7 @@ class DynamicTable(TableLike):
 
     SHOW_PLURAL: ClassVar[str] = "DYNAMIC TABLES"
     SHOW_NAME_COLUMN: ClassVar[str] = "name"
+    GET_DDL_TYPE: ClassVar[Optional[str]] = "DYNAMIC_TABLE"
 
     @property
     def definition(self) -> Optional[str]:

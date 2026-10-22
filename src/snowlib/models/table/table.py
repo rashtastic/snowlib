@@ -33,6 +33,7 @@ class Table(TableLike):
 
     SHOW_PLURAL: ClassVar[str] = "TABLES"
     SHOW_NAME_COLUMN: ClassVar[str] = "name"
+    GET_DDL_TYPE: ClassVar[str | None] = "TABLE"
 
     def _get_variant_columns(self) -> set[str]:
         """Get set of column names that are VARIANT type in this table"""
