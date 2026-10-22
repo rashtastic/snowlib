@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import keyring
 from cryptography.hazmat.backends import default_backend
@@ -25,7 +25,7 @@ class BaseConnector:
         self.password: Optional[str] = None
         self.private_key: Optional[Any] = None
 
-        self._cfg: Dict[str, Any] = load_profile(profile, path=config_path)
+        self._cfg: dict[str, Any] = load_profile(profile, path=config_path)
         self._cfg.update(kwargs)
         self._profile = profile
         self._process_auth()

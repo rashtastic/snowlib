@@ -1,7 +1,7 @@
 """Pytest configuration and shared fixtures for integration tests."""
 
 import sys
-from typing import Any, Dict
+from typing import Any
 
 # Use tomllib for Python 3.11+, fallback to tomli for older versions
 if sys.version_info >= (3, 11):
@@ -20,7 +20,7 @@ import pytest
 from snowlib.connection import CONF_DIR
 
 
-def _load_test_config() -> Dict[str, Any]:
+def _load_test_config() -> dict[str, Any]:
     """
     Load test configuration from conf/test_config.toml.
 

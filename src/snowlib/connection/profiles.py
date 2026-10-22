@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 # Use tomllib for Python 3.11+, fallback to tomli for older versions
 if sys.version_info >= (3, 11):
@@ -21,7 +21,7 @@ from .paths import resolve_config_path
 
 def load_profile(
     profile: str, path: Optional[Union[str, Path]] = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Load a Snowflake connection profile from connections.toml file"""
     config_file = resolve_config_path(path)
 

@@ -1,6 +1,6 @@
 """Snowflake connection management with profile support."""
 
-from typing import Any, Literal, Optional, Tuple
+from typing import Any, Literal, Optional
 
 import snowflake.connector
 from snowflake.connector import SnowflakeConnection
@@ -21,7 +21,7 @@ class SnowflakeConnector(BaseConnector):
         self._connection: Optional[SnowflakeConnection] = None
         self._cursor: Optional[SnowflakeCursor] = None
 
-    def connect(self) -> Tuple[SnowflakeConnection, SnowflakeCursor]:
+    def connect(self) -> tuple[SnowflakeConnection, SnowflakeCursor]:
         """Establish connection to Snowflake if not already connected and return connection and cursor"""
         if self._connection is None:
             self._connection = snowflake.connector.connect(**self._cfg)  # type: ignore[misc]
@@ -40,7 +40,7 @@ class SnowflakeConnector(BaseConnector):
             self._connection.close()
             self._connection = None
 
-    def __enter__(self) -> Tuple[SnowflakeConnection, SnowflakeCursor]:
+    def __enter__(self) -> tuple[SnowflakeConnection, SnowflakeCursor]:
         """Establish connection and return connection and cursor for context manager"""
         return self.connect()
 

@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Optional, cast
+from typing import Any, ClassVar, cast
 
 from snowlib.context import SnowflakeContext
 from snowlib.models.base import SchemaChild
@@ -29,7 +29,7 @@ class StageObject:
 
     name: str
     size: int
-    md5: Optional[str]
+    md5: str | None
     last_modified: datetime
     _stage: Stage
 
@@ -91,8 +91,8 @@ class Stage(SchemaChild):
 
     def list(
         self,
-        prefix: Optional[str] = None,
-        pattern: Optional[str] = None,
+        prefix: str | None = None,
+        pattern: str | None = None,
     ) -> list[StageObject]:
         """List objects in the stage.
 
@@ -136,7 +136,7 @@ class Stage(SchemaChild):
         """Get all objects in the stage"""
         return self.list()
 
-    def clear(self, prefix: Optional[str] = None) -> list[dict[str, Any]]:
+    def clear(self, prefix: str | None = None) -> list[dict[str, Any]]:
         """Remove files from the stage.
 
         Args:
@@ -163,7 +163,7 @@ class Stage(SchemaChild):
         auto_compress: bool = True,
         overwrite: bool = False,
         show_progress: bool = True,
-        prefix: Optional[str] = None,
+        prefix: str | None = None,
     ) -> list[dict[str, Any]]:
         """Upload local files to the stage with progress bar
 

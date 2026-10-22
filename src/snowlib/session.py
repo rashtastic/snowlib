@@ -1,7 +1,7 @@
 """Context-bound session for snowlib operations"""
 
 from collections.abc import Sequence
-from typing import Any, Generic, Optional, Protocol, Type, TypeVar
+from typing import Any, Generic, Optional, Protocol, TypeVar
 
 import pandas as pd
 
@@ -38,7 +38,7 @@ T = TypeVar("T", bound=HasFromName)
 class BoundModel(Generic[T]):
     """A model class bound to a context for convenient instantiation"""
 
-    def __init__(self, model_class: Type[T], context: SnowflakeContext):
+    def __init__(self, model_class: type[T], context: SnowflakeContext):
         self._model_class = model_class
         self._context = context
 
