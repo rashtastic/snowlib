@@ -475,6 +475,8 @@ pytest --cov=snowlib
 
 tox creates its environments through the `tox-uv` plugin (in the `dev` extra), and uv downloads any Python version from 3.9 to 3.14 that is not already installed. Nothing needs to be on PATH, and the default `python` is not changed.
 
+`py313-base` installs snowlib with no extras, as `pip install snowlib` does. The `snowpark` extra caps the connector, so it is the only environment that tests the newest connector.
+
 ```powershell
 # Run all Python versions
 tox
