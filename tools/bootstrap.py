@@ -5,8 +5,8 @@ missing, without touching PATH or the default python), installs snowlib in
 editable mode with the dev extra, registers the "snowlib" Jupyter kernel, and
 points the nbstripout git filter at the venv.
 
-    uv run --isolated --no-project build/bootstrap.py              create, or update in place
-    uv run --isolated --no-project build/bootstrap.py --recreate   delete .venv and rebuild
+    uv run --isolated --no-project tools/bootstrap.py              create, or update in place
+    uv run --isolated --no-project tools/bootstrap.py --recreate   delete .venv and rebuild
 
 --isolated matters: without it uv runs the script with the project's .venv when
 one exists, and Windows cannot delete the running interpreter, so --recreate
@@ -24,7 +24,7 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 VENV_DIR = PROJECT_DIR / ".venv"
 KERNEL_NAME = "snowlib"
-INVOCATION = "uv run --isolated --no-project build/bootstrap.py"
+INVOCATION = "uv run --isolated --no-project tools/bootstrap.py"
 
 
 def venv_python() -> Path:

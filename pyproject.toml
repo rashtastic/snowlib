@@ -82,6 +82,8 @@ dev = [
     "bandit",
     "detect-secrets",
     # Distribution
+    "build",
+    "twine",
     "pip-licenses",
     "nbformat",
     "nbstripout",
