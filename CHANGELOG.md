@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.1
+
+### Added
+
+- `Session.show(..., on_limit="raise")` raises `RuntimeError` when a kind that cannot page, such as tasks, reaches SHOW's 10,000-row maximum, for callers to whom a truncated list is worse than none. The default, `"warn"`, is unchanged.
+
+### Fixed
+
+- `Session.show` returns the DataFrame Snowflake returns, keeping its columns and dtypes. In 0.5.0 it rebuilt the frame from Python objects, so a SHOW with no rows came back with no columns, and dtypes were re-inferred, for example an integer column with nulls as float.
+
 ## 0.5.0
 
 ### Changed

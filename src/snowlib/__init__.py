@@ -48,7 +48,7 @@ from snowlib.primitives import (
 from snowlib.session import Session, create_session
 from snowlib.utils.ddl import DdlTarget
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 __all__ = [
     # Layer 1: Configuration & Connection
     "load_profile",

@@ -213,10 +213,10 @@ with create_session(profile="dev") as session:
         print(dt.fqn, dt.metadata["target_lag"])
 ```
 
-- `Session.show` accepts the kinds listed in `SHOW_KINDS` in `models/base/show.py`; the kind is checked because it is part of the SQL text.
+- `Session.show` accepts the kinds listed in `SHOW_KINDS` in `models/base/show.py`; the kind is checked because it is part of the SQL text. It returns the DataFrame Snowflake returns, with SHOW's columns and dtypes even when there are no rows.
 - `DdlTarget` names are as SHOW returns them: each part is quoted in its exact case. Function and procedure argument types can be read from SHOW's `arguments` column with `snowlib.utils.ddl.arg_types_from_show`.
 - `ddl()` uses GET_DDL's own type names (`DYNAMIC_TABLE`, and `VIEW` for materialized views). GET_DDL has no stage type, so `Stage.ddl()` raises `NotImplementedError`.
-- SHOW returns at most 10,000 rows. For databases, schemas, tables, views and dynamic tables listed in their direct parent, `Show` pages with `LIMIT 10000 FROM '<last name>'`. Wider scopes cannot page, because they sort by schema before name. Kinds without `LIMIT` (columns, stages, materialized views) warn when a result reaches 10,000 rows; the Information Schema has no such limit.
+- SHOW returns at most 10,000 rows. For databases, schemas, tables, views and dynamic tables listed in their direct parent, `Show` pages with `LIMIT 10000 FROM '<last name>'`. Wider scopes cannot page, because they sort by schema before name. Kinds without `LIMIT` (columns, stages, materialized views) warn when a result reaches 10,000 rows; the Information Schema has no such limit. Pass `on_limit="raise"` to `Session.show` to raise `RuntimeError` instead, where a truncated list would be read as complete.
 
 ## SnowflakeContext
 
