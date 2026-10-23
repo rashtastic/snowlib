@@ -1,6 +1,6 @@
 # snowlib Developer Guide
 
-**Last updated: January 2026**
+**Last updated: October 2026**
 
 This document orients developers to the snowlib codebase. After reading this, you should know where to work on any snowlib-related task.
 
@@ -16,6 +16,9 @@ This document orients developers to the snowlib codebase. After reading this, yo
 | JSON column handling | `src/snowlib/utils/json_columns.py` |
 | Schema inference from DataFrames | `src/snowlib/utils/schema.py` |
 | Stage file operations | `src/snowlib/models/stage.py` |
+| SHOW commands, paging past 10,000 rows | `src/snowlib/models/base/show.py` |
+| GET_DDL names and batch queries | `src/snowlib/utils/ddl.py` |
+| Connector-version-dependent parameters | `src/snowlib/utils/connector.py` |
 | Write unit tests | `tests/unit/` |
 | Write integration tests | `tests/integration/` |
 | Update public API | `src/snowlib/__init__.py` |
@@ -27,6 +30,7 @@ This document orients developers to the snowlib codebase. After reading this, yo
 - Context: `SnowflakeContext`
 - Session: `Session`, `create_session`
 - Models: `Database`, `Schema`, `Table`, `View`, `MaterializedView`, `DynamicTable`, `Column`, `Stage`, `StageObject`, `Show`
+- Metadata: `DdlTarget` (for `Session.get_ddl`)
 - Types: `TableLike`, `WriteMethod`
 - Connection: `load_profile`, `list_profiles`, `SnowflakeConnector`, `SnowparkConnector`, `get_config_directory`
 
@@ -99,9 +103,11 @@ result = execute_sql("SELECT * FROM t WHERE id = %s", context=ctx, bindings=[123
 # Direct to DataFrame
 df = query("SELECT * FROM t WHERE status = %s", context=ctx, bindings=["active"])
 
-# Disable Arrow fetch for problematic data (e.g., extreme dates like 9999-01-01)
+# Native Python types instead of Arrow (slower)
 df = query("SELECT * FROM t", context=ctx, arrow=False)
 ```
+
+**Timestamps**: on connector 4.3 or later, Arrow fetches ask for microsecond precision, so timestamp columns are `datetime64[us]` whatever the result's size, and dates outside pandas' nanosecond range (such as `9999-12-31`) come through intact. Without it, a large result mixing such dates with ordinary ones failed to combine its batches and fell back to native types. If Arrow fails after `fetch_batches()` has yielded a batch, it raises rather than refetching a partly read cursor.
 
 ### Layer 3: Models
 
@@ -178,6 +184,39 @@ stage.clear()
 # Drop the stage
 stage.drop(if_exists=True)
 ```
+
+**Metadata**:
+```python
+from snowlib import DdlTarget, create_session
+
+with create_session(profile="dev") as session:
+    schema = session.schema("MY_DB", "MY_SCHEMA")
+
+    # SHOW any listed kind, including ones without a model, as a DataFrame
+    tasks = session.show("tasks", in_=schema)
+    functions = session.show("user functions", in_=schema, like="CLEAN_%")
+
+    # GET_DDL for one object
+    print(schema.table("SALES").ddl())
+
+    # GET_DDL for many objects in one query: object_type, object_name, ddl
+    ddl = session.get_ddl([
+        DdlTarget("VIEW", "MY_DB", "MY_SCHEMA", "SALES_VW"),
+        DdlTarget("FUNCTION", "MY_DB", "MY_SCHEMA", "CLEAN_NAME", ["VARCHAR"]),
+    ])
+
+    # Every column in the schema from information_schema, with object_fqn first
+    columns = schema.columns()
+
+    # Dynamic tables (Schema.tables lists them too, as SHOW TABLES does)
+    for dt in schema.dynamic_tables:
+        print(dt.fqn, dt.metadata["target_lag"])
+```
+
+- `Session.show` accepts the kinds listed in `SHOW_KINDS` in `models/base/show.py`; the kind is checked because it is part of the SQL text.
+- `DdlTarget` names are as SHOW returns them: each part is quoted in its exact case. Function and procedure argument types can be read from SHOW's `arguments` column with `snowlib.utils.ddl.arg_types_from_show`.
+- `ddl()` uses GET_DDL's own type names (`DYNAMIC_TABLE`, and `VIEW` for materialized views). GET_DDL has no stage type, so `Stage.ddl()` raises `NotImplementedError`.
+- SHOW returns at most 10,000 rows. For databases, schemas, tables, views and dynamic tables listed in their direct parent, `Show` pages with `LIMIT 10000 FROM '<last name>'`. Wider scopes cannot page, because they sort by schema before name. Kinds without `LIMIT` (columns, stages, materialized views) warn when a result reaches 10,000 rows; the Information Schema has no such limit.
 
 ## SnowflakeContext
 

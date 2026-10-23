@@ -14,6 +14,8 @@ pip install snowlib[sqlalchemy]
 pip install snowlib[excel]
 ```
 
+Usage: [developer guide](https://github.com/rashtastic/snowlib/blob/main/docs/developer-guide.md) · Changes: [changelog](https://github.com/rashtastic/snowlib/blob/main/CHANGELOG.md)
+
 ## Compatibility
 
 | Package | 3.14 | 3.13-3.10 | 3.9* |
