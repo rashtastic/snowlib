@@ -427,8 +427,8 @@ snowlib/
 │   ├── conftest.py           # Shared fixtures
 │   ├── unit/                 # Unit tests (no Snowflake connection)
 │   └── integration/          # Integration tests (requires Snowflake)
-├── build/                    # Build and release notebooks
-│   ├── 01_setup.ipynb        # Initial setup
+├── build/                    # Setup script and release notebooks
+│   ├── bootstrap.py          # Create or update .venv with uv
 │   ├── 02_prerelease.ipynb   # Pre-release checks (quality, tox, security)
 │   ├── 03_publish.ipynb      # Publish to PyPI
 │   └── build_tools/          # Build utility modules
@@ -440,17 +440,14 @@ snowlib/
 
 ## Development Setup
 
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/). uv downloads the Python version in `.python-version` (3.13) if it is missing, without changing PATH or the default `python`.
+
 ```powershell
-# Clone and setup
 git clone https://github.com/rashtastic/snowlib.git
 cd snowlib
 
-# Create virtual environment
-python -m venv .venv
+# Create .venv if missing, then activate it
 . .\venv.ps1
-
-# Install in editable mode with dev dependencies
-pip install -e .[dev]
 
 # Editor settings (the real settings.json is gitignored)
 Copy-Item .vscode\settings.json.example .vscode\settings.json
@@ -459,19 +456,20 @@ Copy-Item .vscode\settings.json.example .vscode\settings.json
 # Copy example files from src/snowlib/_data/ to ~/.snowlib/
 ```
 
-### Notebook filter (once per clone)
+`venv.ps1` runs `build/bootstrap.py` when `.venv` does not exist. Run the script directly to update or rebuild:
 
-Notebooks are committed without outputs through an `nbstripout` clean filter. `.gitattributes` declares it, but the filter itself lives in git config, which is not cloned, so set it up after installing the dev dependencies. From Git Bash, with the venv active:
-
-```bash
-nbstripout --install --attributes .gitattributes
-git config filter.nbstripout.extrakeys "metadata.language_info.version"
-git config filter.nbstripout.clean "$(git config filter.nbstripout.clean) --unix-newlines" && git config diff.ipynb.textconv "$(git config diff.ipynb.textconv) --unix-newlines"
+```powershell
+uv run --isolated --no-project build/bootstrap.py             # update in place after dependency changes
+uv run --isolated --no-project build/bootstrap.py --recreate  # delete .venv and rebuild, e.g. after changing .python-version
 ```
 
-Run the third line once, and again after any re-run of `--install`, which writes the clean and diff commands back without `--unix-newlines`. Confirm with `nbstripout --status` that `extrakeys=` is not empty.
+It creates `.venv` with uv, installs snowlib in editable mode with the `dev` extra, registers the `snowlib` Jupyter kernel (`--no-kernel` skips it), and configures the notebook filter below. `--isolated` keeps uv from running the script with the `.venv` it is about to delete. Close notebooks and terminals using `.venv` before `--recreate`, since Windows cannot delete files in use.
 
-The filter is required, and its command is an absolute path into `.venv`. If the venv is deleted or rebuilt from a Python that no longer exists, every git operation touching a notebook fails with `clean filter 'nbstripout' failed`. Recreate the venv and re-run the commands above.
+### Notebook filter
+
+Notebooks are committed without outputs through an `nbstripout` clean filter, run with `--unix-newlines` and stripping `metadata.language_info.version`. `.gitattributes` declares it, but the filter itself lives in git config, which is not cloned; `build/bootstrap.py` writes it.
+
+The filter is required, and its command is an absolute path into `.venv`. If the venv is deleted, every git operation touching a notebook fails with `clean filter 'nbstripout' failed`. Run `build/bootstrap.py` again to fix it.
 
 ## Testing
 
@@ -591,11 +589,13 @@ Install with: `pip install snowlib[snowpark,sqlalchemy]`
 
 ## Build and Release
 
-Build notebooks in `build/` directory:
+In `build/`:
 
-1. `01_setup.ipynb` - Initial environment setup
+1. `bootstrap.py` - Create or update the development environment (see Development Setup)
 2. `02_prerelease.ipynb` - Quality checks, tox testing, security scans
 3. `03_publish.ipynb` - Build and publish to PyPI
+
+The notebooks keep their numbers from when setup was a notebook too.
 
 Quality checks include:
 - ruff check and ruff format --check (lint and formatting; rules pinned in `[tool.ruff.lint]`)
