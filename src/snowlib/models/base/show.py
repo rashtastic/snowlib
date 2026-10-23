@@ -88,7 +88,7 @@ class Show:
         Without a limit, kinds that support it are paged past SHOW's
         10,000-row maximum; kinds that do not warn when they reach it.
         """
-        return self._records(
+        df = self._frame(
             object_class.SHOW_PLURAL,
             object_class.SHOW_NAME_COLUMN,
             container=container,
@@ -96,25 +96,33 @@ class Show:
             starts_with=starts_with,
             limit=limit,
         )
+        records: list[dict[str, Any]] = df.to_dict("records")  # type: ignore[assignment]
+        return records
 
     def rows(
         self,
         kind: str,
         container: Optional["SnowflakeObject"] = None,
         like: Optional[str] = None,
+        on_limit: str = "warn",
     ) -> pd.DataFrame:
-        """SHOW any listed object kind, e.g. "user functions" or "tasks", as a DataFrame."""
+        """SHOW any listed object kind, e.g. "user functions" or "tasks", as a DataFrame.
+
+        The frame keeps SHOW's columns and dtypes, including when it has no rows.
+        A kind that cannot page warns when it reaches SHOW's 10,000-row maximum,
+        or raises RuntimeError with on_limit="raise".
+        """
         normalized = " ".join(kind.upper().split())
         if normalized not in SHOW_KINDS:
             raise ValueError(
                 f"Unsupported SHOW kind {kind!r}. Supported: "
                 + ", ".join(sorted(SHOW_KINDS))
             )
-        return pd.DataFrame(
-            self._records(normalized, "name", container=container, like=like)
+        return self._frame(
+            normalized, "name", container=container, like=like, on_limit=on_limit
         )
 
-    def _records(
+    def _frame(
         self,
         kind: str,
         name_col: str,
@@ -122,15 +130,18 @@ class Show:
         like: Optional[str] = None,
         starts_with: Optional[str] = None,
         limit: Optional[int] = None,
-    ) -> list[dict[str, Any]]:
-        """Run SHOW <kind>, paging or warning at the row maximum."""
+        on_limit: str = "warn",
+    ) -> pd.DataFrame:
+        """Run SHOW <kind>, paging, or warning or raising at the row maximum."""
+        if on_limit not in ("warn", "raise"):
+            raise ValueError(f"on_limit must be 'warn' or 'raise', not {on_limit!r}")
         # IN takes DATABASE, SCHEMA, TABLE or VIEW: a dynamic table's columns are
         # shown IN TABLE and a materialized view's IN VIEW.
         container_type = container._object_keyword().split()[-1] if container else None
         if isinstance(starts_with, str):
             starts_with = starts_with.upper()
 
-        def page(rows: Optional[int], after: Optional[str]) -> list[dict[str, Any]]:
+        def page(rows: Optional[int], after: Optional[str]) -> pd.DataFrame:
             query = SafeQuery(f"SHOW {kind}")
             query.when(like, "LIKE %s", like)
             if container:
@@ -141,37 +152,36 @@ class Show:
             query.when(rows, "LIMIT %s", rows)
             query.when(after, "FROM %s", after)
             sql, bindings = query.as_tuple()
-            df = self.executor.run_with_result_scan(sql, bindings=bindings).to_df()
-            if df.empty:
-                return []
-            records: list[dict[str, Any]] = df.to_dict("records")  # type: ignore[assignment]
-            return records
+            return self.executor.run_with_result_scan(sql, bindings=bindings).to_df()
 
         if limit:
             return page(limit, None)
 
         if kind in PAGED_KINDS and PAGED_KINDS[kind] == container_type:
-            records = page(SHOW_ROW_LIMIT, None)
-            last_page = records
-            while len(last_page) == SHOW_ROW_LIMIT:
-                after = last_page[-1][name_col]
-                last_page = [
-                    r for r in page(SHOW_ROW_LIMIT, after) if r[name_col] != after
-                ]
-                records.extend(last_page)
-            return records
+            frames = [page(SHOW_ROW_LIMIT, None)]
+            while len(frames[-1]) == SHOW_ROW_LIMIT:
+                after = frames[-1][name_col].iloc[-1]
+                next_page = page(SHOW_ROW_LIMIT, after)
+                next_page = next_page[next_page[name_col] != after]
+                if next_page.empty:
+                    break
+                frames.append(next_page)
+            if len(frames) == 1:
+                return frames[0]
+            return pd.concat(frames, ignore_index=True)
 
-        records = page(None, None)
-        if len(records) >= SHOW_ROW_LIMIT:
+        df = page(None, None)
+        if len(df) >= SHOW_ROW_LIMIT:
             scope = f" IN {container_type} {container.fqn}" if container else ""
-            warnings.warn(
-                f"SHOW {kind}{scope} returned {len(records):,} rows, the most SHOW "
+            msg = (
+                f"SHOW {kind}{scope} returned {len(df):,} rows, the most SHOW "
                 + "returns, so the list is likely incomplete; the Information "
-                + "Schema has no such limit.",
-                UserWarning,
-                stacklevel=3,
+                + "Schema has no such limit."
             )
-        return records
+            if on_limit == "raise":
+                raise RuntimeError(msg)
+            warnings.warn(msg, UserWarning, stacklevel=3)
+        return df
 
     def get_metadata(
         self,

@@ -186,13 +186,73 @@ class TestRows:
         finally:
             patcher.stop()
 
-    def test_empty_result(self, mock_ctx):
+    def test_tasks_raise_at_the_limit_on_request(self, mock_ctx):
+        names = [f"T{i:05d}" for i in range(SHOW_ROW_LIMIT)]
+        show, _calls, patcher = show_with(names, mock_ctx)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                with pytest.raises(RuntimeError, match="likely incomplete"):
+                    show.rows(
+                        "tasks",
+                        container=Schema("DB", "SCH", context=mock_ctx),
+                        on_limit="raise",
+                    )
+        finally:
+            patcher.stop()
+
+    def test_raise_below_the_limit_returns_rows(self, mock_ctx):
+        show, _calls, patcher = show_with(["A", "B"], mock_ctx)
+        try:
+            df = show.rows("tasks", on_limit="raise")
+        finally:
+            patcher.stop()
+        assert df["name"].tolist() == ["A", "B"]
+
+    def test_unknown_on_limit_is_rejected(self, mock_ctx):
+        show, _calls, patcher = show_with(["A"], mock_ctx)
+        try:
+            with pytest.raises(ValueError, match="on_limit"):
+                show.rows("tasks", on_limit="ignore")
+        finally:
+            patcher.stop()
+
+    def test_empty_result_keeps_columns(self, mock_ctx):
         show, _calls, patcher = show_with([], mock_ctx)
         try:
             df = show.rows("tasks")
         finally:
             patcher.stop()
         assert df.empty
+        assert list(df.columns) == ["name"]
+
+    def test_frame_is_returned_as_fetched(self, mock_ctx):
+        """No round trip through Python objects, so dtypes are SHOW's own."""
+        fetched = pd.DataFrame(
+            {
+                "name": pd.Series(["A", "B"], dtype="object"),
+                "rows": pd.Series([1, None], dtype="Int64"),
+                "created_on": pd.to_datetime(["2026-01-01", "2026-01-02"]).as_unit(
+                    "us"
+                ),
+            }
+        )
+        executor = MagicMock()
+        executor.run_with_result_scan.return_value.to_df.return_value = fetched
+        with patch("snowlib.models.base.show.Executor", return_value=executor):
+            df = Show(mock_ctx).rows("tasks")
+        pd.testing.assert_frame_equal(df, fetched)
+
+    def test_paged_rows_are_one_frame(self, mock_ctx):
+        names = [f"T{i:05d}" for i in range(SHOW_ROW_LIMIT + 3)]
+        show, calls, patcher = show_with(names, mock_ctx)
+        try:
+            df = show.rows("tables", container=Schema("DB", "SCH", context=mock_ctx))
+        finally:
+            patcher.stop()
+        assert df["name"].tolist() == names
+        assert df.index.tolist() == list(range(len(names)))
+        assert len(calls) == 2
 
     @pytest.mark.parametrize(
         "kind", ["grants", "tables; drop table x", "TABLES IN ACCOUNT", ""]
@@ -212,6 +272,17 @@ class TestRows:
             patcher.stop()
         assert df["name"].tolist() == ["A"]
         assert calls[0][0] == "SHOW TASKS IN SCHEMA IDENTIFIER(%s)"
+
+    def test_session_show_passes_on_limit(self, mock_ctx):
+        from snowlib.session import Session
+
+        names = [f"T{i:05d}" for i in range(SHOW_ROW_LIMIT)]
+        _show, _calls, patcher = show_with(names, mock_ctx)
+        try:
+            with pytest.raises(RuntimeError, match="likely incomplete"):
+                Session(context=mock_ctx).show("tasks", on_limit="raise")
+        finally:
+            patcher.stop()
 
 
 def test_unpaged_kind_below_the_limit_is_quiet(mock_ctx):

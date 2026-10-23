@@ -128,9 +128,16 @@ class Session:
         kind: str,
         in_: Optional[SnowflakeObject] = None,
         like: Optional[str] = None,
+        on_limit: str = "warn",
     ) -> pd.DataFrame:
-        """SHOW <kind> [IN <object>] as a DataFrame: session.show("tasks", in_=schema)"""
-        return Show(self._context).rows(kind, container=in_, like=like)
+        """SHOW <kind> [IN <object>] as a DataFrame: session.show("tasks", in_=schema)
+
+        A kind that cannot page warns when it reaches SHOW's 10,000-row maximum,
+        or raises RuntimeError with on_limit="raise".
+        """
+        return Show(self._context).rows(
+            kind, container=in_, like=like, on_limit=on_limit
+        )
 
     def get_ddl(self, targets: list[DdlTarget]) -> pd.DataFrame:
         """GET_DDL for many objects in one query: object_type, object_name, ddl"""

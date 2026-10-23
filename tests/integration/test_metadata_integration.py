@@ -108,6 +108,14 @@ class TestSessionShow:
     def test_kind_with_no_objects_is_empty(self, session, schema, objects):
         df = session.show("sequences", in_=schema, like=f"{objects.prefix}%")
         assert df.empty
+        assert {"name", "database_name", "schema_name"} <= set(df.columns)
+
+    def test_empty_frame_has_the_same_columns(self, session, schema, objects):
+        """A table-less match keeps SHOW's columns, as the populated frame has."""
+        full = session.show("tables", in_=schema, like=objects.table)
+        empty = session.show("tables", in_=schema, like=f"{objects.prefix}NO_SUCH%")
+        assert empty.empty
+        assert list(empty.columns) == list(full.columns)
 
 
 class TestDdl:
