@@ -39,7 +39,7 @@ class AsyncQuery:
         """Check if the query is still running"""
         status_enum = self._conn.get_query_status(self.query_id)
         return self._conn.is_still_running(status_enum)
-    
+
     def is_done(self) -> bool:
         """Check if the query has completed (successfully or with error).
 

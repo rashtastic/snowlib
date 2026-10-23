@@ -1,6 +1,6 @@
 # snowlib Developer Guide
 
-**Last updated: January 2026**
+**Last updated: October 2026**
 
 This document orients developers to the snowlib codebase. After reading this, you should know where to work on any snowlib-related task.
 
@@ -16,6 +16,9 @@ This document orients developers to the snowlib codebase. After reading this, yo
 | JSON column handling | `src/snowlib/utils/json_columns.py` |
 | Schema inference from DataFrames | `src/snowlib/utils/schema.py` |
 | Stage file operations | `src/snowlib/models/stage.py` |
+| SHOW commands, paging past 10,000 rows | `src/snowlib/models/base/show.py` |
+| GET_DDL names and batch queries | `src/snowlib/utils/ddl.py` |
+| Connector-version-dependent parameters | `src/snowlib/utils/connector.py` |
 | Write unit tests | `tests/unit/` |
 | Write integration tests | `tests/integration/` |
 | Update public API | `src/snowlib/__init__.py` |
@@ -27,6 +30,7 @@ This document orients developers to the snowlib codebase. After reading this, yo
 - Context: `SnowflakeContext`
 - Session: `Session`, `create_session`
 - Models: `Database`, `Schema`, `Table`, `View`, `MaterializedView`, `DynamicTable`, `Column`, `Stage`, `StageObject`, `Show`
+- Metadata: `DdlTarget` (for `Session.get_ddl`)
 - Types: `TableLike`, `WriteMethod`
 - Connection: `load_profile`, `list_profiles`, `SnowflakeConnector`, `SnowparkConnector`, `get_config_directory`
 
@@ -99,9 +103,11 @@ result = execute_sql("SELECT * FROM t WHERE id = %s", context=ctx, bindings=[123
 # Direct to DataFrame
 df = query("SELECT * FROM t WHERE status = %s", context=ctx, bindings=["active"])
 
-# Disable Arrow fetch for problematic data (e.g., extreme dates like 9999-01-01)
+# Native Python types instead of Arrow (slower)
 df = query("SELECT * FROM t", context=ctx, arrow=False)
 ```
+
+**Timestamps**: on connector 4.3 or later, Arrow fetches ask for microsecond precision, so timestamp columns are `datetime64[us]` whatever the result's size, and dates outside pandas' nanosecond range (such as `9999-12-31`) come through intact. Without it, a large result mixing such dates with ordinary ones failed to combine its batches and fell back to native types. If Arrow fails after `fetch_batches()` has yielded a batch, it raises rather than refetching a partly read cursor.
 
 ### Layer 3: Models
 
@@ -178,6 +184,39 @@ stage.clear()
 # Drop the stage
 stage.drop(if_exists=True)
 ```
+
+**Metadata**:
+```python
+from snowlib import DdlTarget, create_session
+
+with create_session(profile="dev") as session:
+    schema = session.schema("MY_DB", "MY_SCHEMA")
+
+    # SHOW any listed kind, including ones without a model, as a DataFrame
+    tasks = session.show("tasks", in_=schema)
+    functions = session.show("user functions", in_=schema, like="CLEAN_%")
+
+    # GET_DDL for one object
+    print(schema.table("SALES").ddl())
+
+    # GET_DDL for many objects in one query: object_type, object_name, ddl
+    ddl = session.get_ddl([
+        DdlTarget("VIEW", "MY_DB", "MY_SCHEMA", "SALES_VW"),
+        DdlTarget("FUNCTION", "MY_DB", "MY_SCHEMA", "CLEAN_NAME", ["VARCHAR"]),
+    ])
+
+    # Every column in the schema from information_schema, with object_fqn first
+    columns = schema.columns()
+
+    # Dynamic tables (Schema.tables lists them too, as SHOW TABLES does)
+    for dt in schema.dynamic_tables:
+        print(dt.fqn, dt.metadata["target_lag"])
+```
+
+- `Session.show` accepts the kinds listed in `SHOW_KINDS` in `models/base/show.py`; the kind is checked because it is part of the SQL text.
+- `DdlTarget` names are as SHOW returns them: each part is quoted in its exact case. Function and procedure argument types can be read from SHOW's `arguments` column with `snowlib.utils.ddl.arg_types_from_show`.
+- `ddl()` uses GET_DDL's own type names (`DYNAMIC_TABLE`, and `VIEW` for materialized views). GET_DDL has no stage type, so `Stage.ddl()` raises `NotImplementedError`.
+- SHOW returns at most 10,000 rows. For databases, schemas, tables, views and dynamic tables listed in their direct parent, `Show` pages with `LIMIT 10000 FROM '<last name>'`. Wider scopes cannot page, because they sort by schema before name. Kinds without `LIMIT` (columns, stages, materialized views) warn when a result reaches 10,000 rows; the Information Schema has no such limit.
 
 ## SnowflakeContext
 
@@ -388,8 +427,8 @@ snowlib/
 │   ├── conftest.py           # Shared fixtures
 │   ├── unit/                 # Unit tests (no Snowflake connection)
 │   └── integration/          # Integration tests (requires Snowflake)
-├── build/                    # Build and release notebooks
-│   ├── 01_setup.ipynb        # Initial setup
+├── build/                    # Setup script and release notebooks
+│   ├── bootstrap.py          # Create or update .venv with uv
 │   ├── 02_prerelease.ipynb   # Pre-release checks (quality, tox, security)
 │   ├── 03_publish.ipynb      # Publish to PyPI
 │   └── build_tools/          # Build utility modules
@@ -401,21 +440,36 @@ snowlib/
 
 ## Development Setup
 
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/). uv downloads the Python version in `.python-version` (3.13) if it is missing, without changing PATH or the default `python`.
+
 ```powershell
-# Clone and setup
 git clone https://github.com/rashtastic/snowlib.git
 cd snowlib
 
-# Create virtual environment
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+# Create .venv if missing, then activate it
+. .\venv.ps1
 
-# Install in editable mode with dev dependencies
-pip install -e .[dev]
+# Editor settings (the real settings.json is gitignored)
+Copy-Item .vscode\settings.json.example .vscode\settings.json
 
 # Create configuration files
 # Copy example files from src/snowlib/_data/ to ~/.snowlib/
 ```
+
+`venv.ps1` runs `build/bootstrap.py` when `.venv` does not exist. Run the script directly to update or rebuild:
+
+```powershell
+uv run --isolated --no-project build/bootstrap.py             # update in place after dependency changes
+uv run --isolated --no-project build/bootstrap.py --recreate  # delete .venv and rebuild, e.g. after changing .python-version
+```
+
+It creates `.venv` with uv, installs snowlib in editable mode with the `dev` extra, registers the `snowlib` Jupyter kernel (`--no-kernel` skips it), and configures the notebook filter below. `--isolated` keeps uv from running the script with the `.venv` it is about to delete. Close notebooks and terminals using `.venv` before `--recreate`, since Windows cannot delete files in use.
+
+### Notebook filter
+
+Notebooks are committed without outputs through an `nbstripout` clean filter, run with `--unix-newlines` and stripping `metadata.language_info.version`. `.gitattributes` declares it, but the filter itself lives in git config, which is not cloned; `build/bootstrap.py` writes it.
+
+The filter is required, and its command is an absolute path into `.venv`. If the venv is deleted, every git operation touching a notebook fails with `clean filter 'nbstripout' failed`. Run `build/bootstrap.py` again to fix it.
 
 ## Testing
 
@@ -455,6 +509,10 @@ pytest --cov=snowlib
 ```
 
 ### Tox (Multi-version Testing)
+
+tox creates its environments through the `tox-uv` plugin (in the `dev` extra), and uv downloads any Python version from 3.9 to 3.14 that is not already installed. Nothing needs to be on PATH, and the default `python` is not changed.
+
+`py313-base` installs snowlib with no extras, as `pip install snowlib` does. The `snowpark` extra caps the connector, so it is the only environment that tests the newest connector.
 
 ```powershell
 # Run all Python versions
@@ -531,13 +589,16 @@ Install with: `pip install snowlib[snowpark,sqlalchemy]`
 
 ## Build and Release
 
-Build notebooks in `build/` directory:
+In `build/`:
 
-1. `01_setup.ipynb` - Initial environment setup
+1. `bootstrap.py` - Create or update the development environment (see Development Setup)
 2. `02_prerelease.ipynb` - Quality checks, tox testing, security scans
 3. `03_publish.ipynb` - Build and publish to PyPI
 
+The notebooks keep their numbers from when setup was a notebook too.
+
 Quality checks include:
+- ruff check and ruff format --check (lint and formatting; rules pinned in `[tool.ruff.lint]`)
 - mypy (type checking)
 - pyright (type checking)
 - pytest (unit and integration tests)

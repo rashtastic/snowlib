@@ -14,12 +14,8 @@ class TestAsyncQuery:
     def test_init(self):
         """Test AsyncQuery initialization."""
         mock_conn = MagicMock()
-        job = AsyncQuery(
-            query_id="test-query-id-123",
-            sql="SELECT 1",
-            _conn=mock_conn
-        )
-        
+        job = AsyncQuery(query_id="test-query-id-123", sql="SELECT 1", _conn=mock_conn)
+
         assert job.query_id == "test-query-id-123"
         assert job.sql == "SELECT 1"
         assert job._conn is mock_conn
@@ -30,26 +26,24 @@ class TestAsyncQuery:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock successful query completion
         mock_cursor.get_results_from_sfqid.return_value = None
         mock_cursor.sfqid = "test-query-id"
         mock_cursor.rowcount = 5
         mock_cursor.query = "SELECT * FROM table"
-        
+
         job = AsyncQuery(
-            query_id="test-query-id",
-            sql="SELECT * FROM table",
-            _conn=mock_conn
+            query_id="test-query-id", sql="SELECT * FROM table", _conn=mock_conn
         )
-        
+
         # Get the result
         result = job.get_result()
-        
+
         # Verify cursor methods were called
         mock_conn.cursor.assert_called_once()
         mock_cursor.get_results_from_sfqid.assert_called_once_with("test-query-id")
-        
+
         # Verify result is a QueryResult
         assert isinstance(result, QueryResult)
         assert result.query_id == "test-query-id"
@@ -62,20 +56,18 @@ class TestAsyncQuery:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock query failure - make get_results_from_sfqid raise an exception
         mock_cursor.get_results_from_sfqid.side_effect = Exception("Query failed")
-        
+
         job = AsyncQuery(
-            query_id="test-query-id",
-            sql="SELECT * FROM table",
-            _conn=mock_conn
+            query_id="test-query-id", sql="SELECT * FROM table", _conn=mock_conn
         )
-        
+
         # Verify exception is raised and cursor is closed
         with pytest.raises(Exception, match="Query failed"):
             job.get_result()
-        
+
         # Cursor should have been closed in the except block
         mock_cursor.close.assert_called_once()
 
@@ -84,13 +76,11 @@ class TestAsyncQuery:
         mock_conn = MagicMock()
         mock_conn.get_query_status.return_value = QueryStatus.RUNNING
         mock_conn.is_still_running.return_value = True
-        
+
         job = AsyncQuery(
-            query_id="test-query-id",
-            sql="SELECT * FROM table",
-            _conn=mock_conn
+            query_id="test-query-id", sql="SELECT * FROM table", _conn=mock_conn
         )
-        
+
         assert job.is_running() is True
         mock_conn.get_query_status.assert_called_once_with("test-query-id")
         mock_conn.is_still_running.assert_called_once_with(QueryStatus.RUNNING)
@@ -100,13 +90,11 @@ class TestAsyncQuery:
         mock_conn = MagicMock()
         mock_conn.get_query_status.return_value = QueryStatus.SUCCESS
         mock_conn.is_still_running.return_value = False
-        
+
         job = AsyncQuery(
-            query_id="test-query-id",
-            sql="SELECT * FROM table",
-            _conn=mock_conn
+            query_id="test-query-id", sql="SELECT * FROM table", _conn=mock_conn
         )
-        
+
         assert job.is_running() is False
         mock_conn.get_query_status.assert_called_once_with("test-query-id")
         mock_conn.is_still_running.assert_called_once_with(QueryStatus.SUCCESS)
@@ -116,19 +104,21 @@ class TestAsyncQuery:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
-        mock_cursor.fetchone.return_value = ("Statement executed successfully: query ... cancelled.",)
-        
-        job = AsyncQuery(
-            query_id="test-query-id",
-            sql="SELECT * FROM huge_table",
-            _conn=mock_conn
+        mock_cursor.fetchone.return_value = (
+            "Statement executed successfully: query ... cancelled.",
         )
-        
+
+        job = AsyncQuery(
+            query_id="test-query-id", sql="SELECT * FROM huge_table", _conn=mock_conn
+        )
+
         result = job.abort()
-        
+
         assert result is True
         mock_conn.cursor.assert_called_once()
-        mock_cursor.execute.assert_called_once_with("SELECT SYSTEM$CANCEL_QUERY('test-query-id')")
+        mock_cursor.execute.assert_called_once_with(
+            "SELECT SYSTEM$CANCEL_QUERY('test-query-id')"
+        )
         mock_cursor.close.assert_called_once()
 
     def test_abort_failure(self):
@@ -136,18 +126,20 @@ class TestAsyncQuery:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
-        mock_cursor.fetchone.return_value = ("Statement executed successfully: query ... not found.",)
-        
-        job = AsyncQuery(
-            query_id="test-query-id",
-            sql="SELECT * FROM huge_table",
-            _conn=mock_conn
+        mock_cursor.fetchone.return_value = (
+            "Statement executed successfully: query ... not found.",
         )
-        
+
+        job = AsyncQuery(
+            query_id="test-query-id", sql="SELECT * FROM huge_table", _conn=mock_conn
+        )
+
         result = job.abort()
-        
+
         assert result is False
-        mock_cursor.execute.assert_called_once_with("SELECT SYSTEM$CANCEL_QUERY('test-query-id')")
+        mock_cursor.execute.assert_called_once_with(
+            "SELECT SYSTEM$CANCEL_QUERY('test-query-id')"
+        )
         mock_cursor.close.assert_called_once()
 
     def test_abort_closes_cursor_on_exception(self):
@@ -156,27 +148,21 @@ class TestAsyncQuery:
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
         mock_cursor.execute.side_effect = Exception("Abort failed")
-        
+
         job = AsyncQuery(
-            query_id="test-query-id",
-            sql="SELECT * FROM huge_table",
-            _conn=mock_conn
+            query_id="test-query-id", sql="SELECT * FROM huge_table", _conn=mock_conn
         )
-        
+
         with pytest.raises(Exception, match="Abort failed"):
             job.abort()
-        
+
         mock_cursor.close.assert_called_once()
 
     def test_frozen_dataclass(self):
         """Test that AsyncQuery is frozen (immutable)."""
         mock_conn = MagicMock()
-        job = AsyncQuery(
-            query_id="test-query-id",
-            sql="SELECT 1",
-            _conn=mock_conn
-        )
-        
+        job = AsyncQuery(query_id="test-query-id", sql="SELECT 1", _conn=mock_conn)
+
         # Verify we can't modify attributes (frozen dataclass)
         with pytest.raises(AttributeError):
             job.query_id = "new-id"  # type: ignore
@@ -185,12 +171,8 @@ class TestAsyncQuery:
         """Test the status property returns the correct status string."""
         mock_conn = MagicMock()
         mock_conn.get_query_status.return_value = QueryStatus.SUCCESS
-        
-        job = AsyncQuery(
-            query_id="test-query-id",
-            sql="SELECT 1",
-            _conn=mock_conn
-        )
-        
+
+        job = AsyncQuery(query_id="test-query-id", sql="SELECT 1", _conn=mock_conn)
+
         assert job.status == "SUCCESS"
         mock_conn.get_query_status.assert_called_once_with("test-query-id")

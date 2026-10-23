@@ -60,11 +60,7 @@ def is_json_eligible(series: pd.Series) -> bool:
         return False
 
     # Verify all non-null values are JSON-serializable
-    for value in non_null:
-        if not _is_json_serializable(value):
-            return False
-
-    return True
+    return all(_is_json_serializable(value) for value in non_null)
 
 
 def serialize_json_column(series: pd.Series) -> pd.Series:
@@ -73,6 +69,7 @@ def serialize_json_column(series: pd.Series) -> pd.Series:
     Preserves top-level nulls as None (which become SQL NULL in Snowflake),
     while Python None inside dicts/lists becomes JSON null.
     """
+
     def safe_dumps(val: Any) -> str | None:
         if _is_scalar_na(val):
             return None
