@@ -429,8 +429,8 @@ snowlib/
 │   └── integration/          # Integration tests (requires Snowflake)
 ├── build/                    # Setup script and release notebooks
 │   ├── bootstrap.py          # Create or update .venv with uv
-│   ├── 02_prerelease.ipynb   # Pre-release checks (quality, tox, security)
-│   ├── 03_publish.ipynb      # Publish to PyPI
+│   ├── prerelease.ipynb      # Pre-release checks (quality, tox, security)
+│   ├── publish.ipynb         # Publish to PyPI
 │   └── build_tools/          # Build utility modules
 ├── local/                    # Local development docs (gitignored content)
 │   └── docs/                 # Design documents, architecture notes
@@ -592,18 +592,16 @@ Install with: `pip install snowlib[snowpark,sqlalchemy]`
 In `build/`:
 
 1. `bootstrap.py` - Create or update the development environment (see Development Setup)
-2. `02_prerelease.ipynb` - Quality checks, tox testing, security scans
-3. `03_publish.ipynb` - Build and publish to PyPI
+2. `prerelease.ipynb` - Quality checks, third-party licenses, tox testing, security scans
+3. `publish.ipynb` - Build and publish to PyPI
 
-The notebooks keep their numbers from when setup was a notebook too.
+`prerelease.ipynb` runs:
+- quality checks: project files present, `ruff check` and `ruff format --check` (rules pinned in `[tool.ruff.lint]`)
+- `licenses/THIRD_PARTY.md`, regenerated with pip-licenses from what is installed in `.venv`
+- tox: the full test suite, unit and integration, in every environment
+- bandit (security scanning) and detect-secrets (secret detection) over `src/`
 
-Quality checks include:
-- ruff check and ruff format --check (lint and formatting; rules pinned in `[tool.ruff.lint]`)
-- mypy (type checking)
-- pyright (type checking)
-- pytest (unit and integration tests)
-- bandit (security scanning)
-- detect-secrets (secret detection)
+Type checking is not part of it; run `pyright` from the venv separately.
 
 ## Key Design Decisions
 
