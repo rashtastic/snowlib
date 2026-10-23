@@ -1,6 +1,9 @@
 """Test FQN class"""
 
+from dataclasses import FrozenInstanceError
+
 import pytest
+
 from snowlib.models.base.fqn import FQN
 
 
@@ -65,13 +68,13 @@ def test_fqn_validates_identifiers():
     """Test validation of identifier rules"""
     with pytest.raises(ValueError, match="Invalid identifier"):
         FQN.from_parts("my-db")  # Hyphens not allowed
-    
+
     with pytest.raises(ValueError, match="Invalid identifier"):
         FQN.from_parts("123db")  # Can't start with number
-    
+
     with pytest.raises(ValueError, match="Invalid identifier"):
         FQN.from_parts("my db")  # Spaces not allowed
-    
+
     with pytest.raises(ValueError, match="Invalid identifier"):
         FQN.from_parts("my;db")  # Semicolon not allowed
 
@@ -85,7 +88,7 @@ def test_fqn_empty_raises():
 def test_fqn_immutable():
     """Test FQN is immutable (frozen dataclass)"""
     fqn = FQN.from_parts("my_db", "public")
-    with pytest.raises(Exception):  # FrozenInstanceError or AttributeError
+    with pytest.raises(FrozenInstanceError):
         fqn.parts = ("other_db", "other_schema")
 
 
@@ -100,6 +103,6 @@ def test_fqn_hashable():
     """Test FQN can be used in sets/dicts (dataclass frozen=True)"""
     fqn1 = FQN.from_parts("my_db", "public", "sales")
     fqn2 = FQN.from_parts("MY_DB", "PUBLIC", "SALES")
-    
+
     fqn_set = {fqn1, fqn2}
     assert len(fqn_set) == 1  # Should be same due to equality

@@ -1,7 +1,10 @@
 """Quality validation checks for release preparation."""
 
-import tomllib
+import subprocess
+import sys
 from pathlib import Path
+
+import tomllib
 
 
 def check_pyproject_complete(project_root: Path) -> None:
@@ -19,7 +22,7 @@ def check_pyproject_complete(project_root: Path) -> None:
 
     if "version" not in project and "version" not in dynamic_fields:
         raise ValueError("Version must be in project or dynamic fields")
-    
+
     print("[OK] pyproject.toml complete")
 
 
@@ -62,12 +65,40 @@ def check_no_problematic_files(project_root: Path) -> None:
     print("[OK] No problematic files")
 
 
+def check_ruff_lint(project_root: Path) -> None:
+    """Verify ruff check reports no findings"""
+    result = subprocess.run(
+        [sys.executable, "-m", "ruff", "check", "."],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ValueError(f"ruff check failed:\n{result.stdout}{result.stderr}")
+    print("[OK] ruff check")
+
+
+def check_ruff_format(project_root: Path) -> None:
+    """Verify ruff format leaves every file unchanged"""
+    result = subprocess.run(
+        [sys.executable, "-m", "ruff", "format", "--check", "."],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ValueError(f"ruff format --check failed:\n{result.stdout}{result.stderr}")
+    print("[OK] ruff format")
+
+
 QUALITY_CHECKS = [
     check_pyproject_complete,
     check_readme_exists,
     check_main_module_exists,
     check_tests_exist,
     check_no_problematic_files,
+    check_ruff_lint,
+    check_ruff_format,
 ]
 
 

@@ -1,11 +1,11 @@
 """Snowflake object-oriented interface for working with Snowflake objects"""
 
+from .base.show import Show
+from .column import Column
 from .database import Database
 from .schema import Schema
-from .table import Table, View, MaterializedView, DynamicTable, TableLike, WriteMethod
-from .column import Column
 from .stage import Stage, StageObject
-from .base.show import Show
+from .table import DynamicTable, MaterializedView, Table, TableLike, View, WriteMethod
 
 __all__ = [
     "Database",

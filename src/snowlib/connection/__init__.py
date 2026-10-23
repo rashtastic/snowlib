@@ -1,8 +1,13 @@
 """Connection module exports."""
 
 from .connection import SnowflakeConnector, SnowparkConnector
-from .profiles import load_profile, list_profiles
-from .paths import resolve_config_path, get_default_config_path, get_config_directory, CONF_DIR
+from .paths import (
+    CONF_DIR,
+    get_config_directory,
+    get_default_config_path,
+    resolve_config_path,
+)
+from .profiles import list_profiles, load_profile
 
 __all__ = [
     "SnowflakeConnector",

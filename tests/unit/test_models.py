@@ -3,13 +3,15 @@
 These tests mock the underlying primitives to test the logic of the
 Snowflake object model without requiring a live connection.
 """
-import pytest
+
 import warnings
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from snowlib.context import SnowflakeContext
-from snowlib.models import Database, Schema
-from snowlib.models.table import Table, View
+from snowlib.models import Database, Schema, Stage
+from snowlib.models.table import DynamicTable, MaterializedView, Table, View
 
 
 @pytest.fixture
@@ -32,15 +34,17 @@ class TestDatabaseModel:
     @patch("snowlib.models.base.show.Show")
     def test_database_exists(self, mock_show_class, mock_ctx):
         db = Database("TEST_DB", context=mock_ctx)
-        
+
         # Setup mock Show instance
         mock_show_instance = MagicMock()
         mock_show_instance.exists.return_value = True
         mock_show_class.return_value = mock_show_instance
-        
+
         assert db.exists() is True
         mock_show_class.assert_called_once_with(mock_ctx)
-        mock_show_instance.exists.assert_called_once_with(Database, "TEST_DB", container=None)
+        mock_show_instance.exists.assert_called_once_with(
+            Database, "TEST_DB", container=None
+        )
 
     @patch("snowlib.models.database.Container._show_children")
     def test_database_schemas(self, mock_show_children, mock_ctx):
@@ -76,12 +80,12 @@ class TestSchemaModel:
     @patch("snowlib.models.base.show.Show")
     def test_schema_exists(self, mock_show_class, mock_ctx):
         schema = Schema("TEST_DB", "PUBLIC", context=mock_ctx)
-        
+
         # Setup mock Show instance
         mock_show_instance = MagicMock()
         mock_show_instance.exists.return_value = False
         mock_show_class.return_value = mock_show_instance
-        
+
         assert schema.exists() is False
         mock_show_class.assert_called_once_with(mock_ctx)
         mock_show_instance.exists.assert_called_once()
@@ -98,14 +102,14 @@ class TestSchemaModel:
         assert tables[0].schema.name == "PUBLIC"
         assert tables[0].database.name == "TEST_DB"
         mock_show_children.assert_called_once_with(Table)
-    
+
     def test_schema_from_name_fully_qualified(self, mock_ctx):
         """Schema.from_name() with DB.SCHEMA format"""
         schema = Schema.from_name("TEST_DB.PUBLIC", mock_ctx)
         assert schema.name == "PUBLIC"
         assert schema.database.name == "TEST_DB"
         assert schema.fqn == "TEST_DB.PUBLIC"
-    
+
     def test_schema_from_name_with_context_database(self, mock_ctx):
         """Schema.from_name() with SCHEMA format using context database"""
         mock_ctx.current_database = "CONTEXT_DB"
@@ -113,13 +117,13 @@ class TestSchemaModel:
         assert schema.name == "PUBLIC"
         assert schema.database.name == "CONTEXT_DB"
         assert schema.fqn == "CONTEXT_DB.PUBLIC"
-    
+
     def test_schema_from_name_requires_database(self, mock_ctx):
         """Schema.from_name() raises error when database cannot be resolved"""
         mock_ctx.current_database = None
         with pytest.raises(ValueError, match="no database in context"):
             Schema.from_name("PUBLIC", mock_ctx)
-    
+
     def test_schema_from_name_rejects_invalid_format(self, mock_ctx):
         """Schema.from_name() rejects invalid formats"""
         with pytest.raises(ValueError, match="Invalid schema name"):
@@ -139,10 +143,11 @@ class TestTableModel:
     @patch("snowlib.primitives.Executor")
     def test_table_read(self, mock_executor_class, mock_ctx):
         import pandas as pd
+
         from snowlib.primitives.result import QueryResult
-        
+
         table = Table("DB", "SCHEMA", "TABLE", context=mock_ctx)
-        
+
         # Setup mock Executor and QueryResult
         mock_executor = MagicMock()
         mock_result = MagicMock(spec=QueryResult)
@@ -150,10 +155,10 @@ class TestTableModel:
         mock_result.to_df.return_value = test_df
         mock_executor.run.return_value = mock_result
         mock_executor_class.return_value = mock_executor
-        
+
         # Call table.read()
         df = table.read(limit=10)
-        
+
         # Assertions
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 2
@@ -174,6 +179,135 @@ class TestTableModel:
         )
 
 
+class TestSchemaDynamicTables:
+    """SHOW TABLES lists dynamic tables too; SHOW DYNAMIC TABLES lists only them."""
+
+    SHOW_TABLES = [
+        {"name": "PLAIN", "is_dynamic": "N"},
+        {"name": "DYN", "is_dynamic": "Y"},
+    ]
+    SHOW_DYNAMIC_TABLES = [{"name": "DYN", "target_lag": "1 hour"}]
+
+    def _schema(self, mock_ctx):
+        schema = Schema("DB", "SCH", context=mock_ctx)
+
+        def show_children(child_class, **filters):
+            if child_class is DynamicTable:
+                return self.SHOW_DYNAMIC_TABLES
+            return self.SHOW_TABLES
+
+        return schema, show_children
+
+    def test_dynamic_tables(self, mock_ctx):
+        schema, show_children = self._schema(mock_ctx)
+        with patch.object(schema, "_show_children", side_effect=show_children):
+            dynamic = schema.dynamic_tables
+        assert [type(t) for t in dynamic] == [DynamicTable]
+        assert [t.fqn for t in dynamic] == ["DB.SCH.DYN"]
+
+    def test_tables_still_includes_dynamic_as_table(self, mock_ctx):
+        schema, show_children = self._schema(mock_ctx)
+        with patch.object(schema, "_show_children", side_effect=show_children):
+            tables = schema.tables
+        assert [t.fqn for t in tables] == ["DB.SCH.PLAIN", "DB.SCH.DYN"]
+        assert all(type(t) is Table for t in tables)
+
+    def test_quoted_dynamic_table_is_skipped_with_warning(self, mock_ctx):
+        schema = Schema("DB", "SCH", context=mock_ctx)
+        rows = [{"name": "OK"}, {"name": "bad.name"}]
+        with patch.object(schema, "_show_children", return_value=rows):
+            with pytest.warns(UserWarning, match="quoted identifier"):
+                dynamic = schema.dynamic_tables
+        assert [t.fqn for t in dynamic] == ["DB.SCH.OK"]
+
+
+class TestSchemaColumns:
+    @patch("snowlib.primitives.Executor")
+    def test_one_bound_query(self, mock_executor_class, mock_ctx):
+        import pandas as pd
+
+        run = mock_executor_class.return_value.run
+        run.return_value.to_df.return_value = pd.DataFrame(
+            {
+                "table_catalog": ["DB", "DB"],
+                "table_schema": ["SCH", "SCH"],
+                "table_name": ["T", "V"],
+                "column_name": ["ID", "NAME"],
+            }
+        )
+        df = Schema("DB", "SCH", context=mock_ctx).columns()
+
+        sql = run.call_args.args[0]
+        assert "FROM IDENTIFIER(%s) WHERE table_schema = %s" in sql
+        assert sql.endswith("ORDER BY table_name, ordinal_position")
+        assert run.call_args.kwargs["bindings"] == [
+            "DB.INFORMATION_SCHEMA.COLUMNS",
+            "SCH",
+        ]
+        assert df.columns[0] == "object_fqn"
+        assert df["object_fqn"].tolist() == ["DB.SCH.T", "DB.SCH.V"]
+
+    @patch("snowlib.primitives.Executor")
+    def test_empty_schema(self, mock_executor_class, mock_ctx):
+        import pandas as pd
+
+        run = mock_executor_class.return_value.run
+        run.return_value.to_df.return_value = pd.DataFrame(
+            columns=["table_catalog", "table_schema", "table_name", "column_name"]
+        )
+        df = Schema("DB", "SCH", context=mock_ctx).columns()
+        assert df.empty
+        assert df.columns[0] == "object_fqn"
+
+
+class TestObjectKeyword:
+    """DESCRIBE and DROP name the object type with SQL's own keyword."""
+
+    @pytest.mark.parametrize(
+        ("make", "expected"),
+        [
+            (lambda ctx: Database("DB", context=ctx), "DESCRIBE DATABASE DB"),
+            (lambda ctx: Schema("DB", "SCH", context=ctx), "DESCRIBE SCHEMA DB.SCH"),
+            (
+                lambda ctx: Table("DB", "SCH", "T", context=ctx),
+                "DESCRIBE TABLE DB.SCH.T",
+            ),
+            (lambda ctx: View("DB", "SCH", "V", context=ctx), "DESCRIBE VIEW DB.SCH.V"),
+            (
+                lambda ctx: DynamicTable("DB", "SCH", "DT", context=ctx),
+                "DESCRIBE DYNAMIC TABLE DB.SCH.DT",
+            ),
+            (
+                lambda ctx: MaterializedView("DB", "SCH", "MV", context=ctx),
+                "DESCRIBE MATERIALIZED VIEW DB.SCH.MV",
+            ),
+            (
+                lambda ctx: Stage("DB", "SCH", "STG", context=ctx),
+                "DESCRIBE STAGE DB.SCH.STG",
+            ),
+        ],
+    )
+    @patch("snowlib.primitives.Executor")
+    def test_describe_sql(self, mock_executor_class, make, expected, mock_ctx):
+        make(mock_ctx).describe()
+        executor = mock_executor_class.return_value
+        executor.run_with_result_scan.assert_called_once_with(expected)
+
+    @pytest.mark.parametrize(
+        ("cls", "expected"),
+        [
+            (Table, "DROP TABLE DB.SCH.X"),
+            (View, "DROP VIEW DB.SCH.X"),
+            (DynamicTable, "DROP DYNAMIC TABLE DB.SCH.X"),
+            (MaterializedView, "DROP MATERIALIZED VIEW DB.SCH.X"),
+        ],
+    )
+    @patch("snowlib.primitives.execute_sql")
+    def test_drop_sql(self, mock_execute, cls, expected, mock_ctx):
+        cls("DB", "SCH", "X", context=mock_ctx).drop()
+        mock_execute.assert_called_once_with(expected, context=mock_ctx)
+
+
 class TestTableTypeMismatchWarning:
     """Tests for type mismatch warnings when Table is actually a View, etc."""
 
@@ -183,13 +317,13 @@ class TestTableTypeMismatchWarning:
         mock_show_instance = MagicMock()
         mock_show_instance.exists.return_value = True
         mock_show_class.return_value = mock_show_instance
-        
+
         table = Table("DB", "SCHEMA", "MY_TABLE", context=mock_ctx)
-        
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = table.exists()
-            
+
             assert result is True
             assert len(w) == 0
 
@@ -197,24 +331,22 @@ class TestTableTypeMismatchWarning:
     def test_warning_when_table_is_actually_view(self, mock_show_class, mock_ctx):
         """Warning when Table doesn't exist but View does"""
         mock_show_instance = MagicMock()
-        
+
         def exists_side_effect(cls, name, container=None):
             # Table doesn't exist, but View does
             if cls == Table:
                 return False
-            if cls == View:
-                return True
-            return False
-        
+            return cls == View
+
         mock_show_instance.exists.side_effect = exists_side_effect
         mock_show_class.return_value = mock_show_instance
-        
+
         table = Table("DB", "SCHEMA", "MY_VIEW", context=mock_ctx)
-        
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = table.exists()
-            
+
             assert result is False
             assert len(w) == 1
             assert "View" in str(w[0].message)
@@ -224,40 +356,40 @@ class TestTableTypeMismatchWarning:
     def test_warning_when_view_is_actually_table(self, mock_show_class, mock_ctx):
         """Warning when View doesn't exist but Table does"""
         mock_show_instance = MagicMock()
-        
+
         def exists_side_effect(cls, name, container=None):
             # View doesn't exist, but Table does
             if cls == View:
                 return False
-            if cls == Table:
-                return True
-            return False
-        
+            return cls == Table
+
         mock_show_instance.exists.side_effect = exists_side_effect
         mock_show_class.return_value = mock_show_instance
-        
+
         view = View("DB", "SCHEMA", "MY_TABLE", context=mock_ctx)
-        
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = view.exists()
-            
+
             assert result is False
             assert len(w) == 1
             assert "Table" in str(w[0].message)
 
     @patch("snowlib.models.base.show.Show")
-    def test_no_warning_when_object_doesnt_exist_anywhere(self, mock_show_class, mock_ctx):
+    def test_no_warning_when_object_doesnt_exist_anywhere(
+        self, mock_show_class, mock_ctx
+    ):
         """No warning when object doesn't exist as any type"""
         mock_show_instance = MagicMock()
         mock_show_instance.exists.return_value = False
         mock_show_class.return_value = mock_show_instance
-        
+
         table = Table("DB", "SCHEMA", "NONEXISTENT", context=mock_ctx)
-        
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = table.exists()
-            
+
             assert result is False
             assert len(w) == 0
