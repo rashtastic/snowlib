@@ -22,7 +22,7 @@ This document orients developers to the snowlib codebase. After reading this, yo
 | Write unit tests | `tests/unit/` |
 | Write integration tests | `tests/integration/` |
 | Update public API | `src/snowlib/__init__.py` |
-| Build/release workflows | `build/*.ipynb` |
+| Setup and release workflows | `tools/` |
 
 **Key exports from `snowlib`**:
 - Primitives: `execute_sql`, `execute_sql_async`, `execute_block`, `query`
@@ -427,11 +427,11 @@ snowlib/
 │   ├── conftest.py           # Shared fixtures
 │   ├── unit/                 # Unit tests (no Snowflake connection)
 │   └── integration/          # Integration tests (requires Snowflake)
-├── build/                    # Setup script and release notebooks
+├── tools/                    # Setup script and release notebooks
 │   ├── bootstrap.py          # Create or update .venv with uv
 │   ├── prerelease.ipynb      # Pre-release checks (quality, tox, security)
 │   ├── publish.ipynb         # Publish to PyPI
-│   └── build_tools/          # Build utility modules
+│   └── build_tools/          # Helpers the notebooks import
 ├── local/                    # Local development docs (gitignored content)
 │   └── docs/                 # Design documents, architecture notes
 ├── temp/                     # Scratch space for experiments (gitignored)
@@ -456,20 +456,20 @@ Copy-Item .vscode\settings.json.example .vscode\settings.json
 # Copy example files from src/snowlib/_data/ to ~/.snowlib/
 ```
 
-`venv.ps1` runs `build/bootstrap.py` when `.venv` does not exist. Run the script directly to update or rebuild:
+`venv.ps1` runs `tools/bootstrap.py` when `.venv` does not exist. Run the script directly to update or rebuild:
 
 ```powershell
-uv run --isolated --no-project build/bootstrap.py             # update in place after dependency changes
-uv run --isolated --no-project build/bootstrap.py --recreate  # delete .venv and rebuild, e.g. after changing .python-version
+uv run --isolated --no-project tools/bootstrap.py             # update in place after dependency changes
+uv run --isolated --no-project tools/bootstrap.py --recreate  # delete .venv and rebuild, e.g. after changing .python-version
 ```
 
 It creates `.venv` with uv, installs snowlib in editable mode with the `dev` extra, registers the `snowlib` Jupyter kernel (`--no-kernel` skips it), and configures the notebook filter below. `--isolated` keeps uv from running the script with the `.venv` it is about to delete. Close notebooks and terminals using `.venv` before `--recreate`, since Windows cannot delete files in use.
 
 ### Notebook filter
 
-Notebooks are committed without outputs through an `nbstripout` clean filter, run with `--unix-newlines` and stripping `metadata.language_info.version`. `.gitattributes` declares it, but the filter itself lives in git config, which is not cloned; `build/bootstrap.py` writes it.
+Notebooks are committed without outputs through an `nbstripout` clean filter, run with `--unix-newlines` and stripping `metadata.language_info.version`. `.gitattributes` declares it, but the filter itself lives in git config, which is not cloned; `tools/bootstrap.py` writes it.
 
-The filter is required, and its command is an absolute path into `.venv`. If the venv is deleted, every git operation touching a notebook fails with `clean filter 'nbstripout' failed`. Run `build/bootstrap.py` again to fix it.
+The filter is required, and its command is an absolute path into `.venv`. If the venv is deleted, every git operation touching a notebook fails with `clean filter 'nbstripout' failed`. Run `tools/bootstrap.py` again to fix it.
 
 ## Testing
 
@@ -589,7 +589,7 @@ Install with: `pip install snowlib[snowpark,sqlalchemy]`
 
 ## Build and Release
 
-In `build/`:
+In `tools/`. The top-level `build/` is setuptools' temporary output and is gitignored.
 
 1. `bootstrap.py` - Create or update the development environment (see Development Setup)
 2. `prerelease.ipynb` - Quality checks, third-party licenses, tox testing, security scans

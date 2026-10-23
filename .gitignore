@@ -18,9 +18,9 @@ security/
 *.log
 *-output.log
 # Exception: keep tox output log for documentation
-!build/tox_output.log
+!tools/tox_output.log
 
+# setuptools build output
+build/
 dist/
-build/lib/
-build/bdist.*/
 *.egg-info/
