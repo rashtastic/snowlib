@@ -28,7 +28,10 @@
         "**/__pycache__/": true,
         "**/.mypy_cache/": true,
         "**/.pytest_cache/": true,
-        "**/*.egg-info": true
+        "**/*.egg-info": true,
+        // build/ holds the release notebooks and build_tools, not build
+        // output, so show it even where user settings hide **/build.
+        "**/build": false
     },
 
     "[markdown]": {
