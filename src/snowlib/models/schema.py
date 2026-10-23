@@ -17,6 +17,9 @@ if TYPE_CHECKING:
     from .table import DynamicTable, Table, View
 
 
+COLUMNS_SQL = "SELECT * FROM IDENTIFIER(%s) WHERE table_schema = %s ORDER BY table_name, ordinal_position"
+
+
 class Schema(Container):
     """Represents a Snowflake schema"""
 
@@ -187,8 +190,7 @@ class Schema(Container):
         columns = (
             Executor(self._context)
             .run(
-                "SELECT * FROM IDENTIFIER(%s) WHERE table_schema = %s "
-                + "ORDER BY table_name, ordinal_position",
+                COLUMNS_SQL,
                 bindings=[
                     f"{self._database_name}.INFORMATION_SCHEMA.COLUMNS",
                     self._schema_name,
